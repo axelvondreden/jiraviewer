@@ -1,6 +1,5 @@
 package data
 
-import com.fasterxml.jackson.annotation.JsonAnySetter
 import com.fasterxml.jackson.annotation.JsonFormat
 import com.fasterxml.jackson.annotation.JsonProperty
 import java.util.*
@@ -22,13 +21,13 @@ data class IssueFields(
     val priority: Name?,
     val attachment: List<Attachment>?,
     val comment: Comments?,
+    @JsonProperty("customfield_10000") val requestedParticipants: List<DisplayName?>?,
     @JsonProperty("customfield_13902") val category: Value?,
     @JsonProperty("customfield_14302") val issueType: Value?,
     @JsonProperty("customfield_14303") val area: Value?,
     @JsonProperty("customfield_14304") val system: Value?,
     @JsonProperty("customfield_15501") val helpText: String?,
     @JsonProperty("customfield_15318") val freitext: String?,
-    @JsonProperty("customfield_15315") val dienstleister: Value?,
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'+0000'", timezone = "GMT") val created: Date,
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'+0000'", timezone = "GMT") val updated: Date?,
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'+0000'", timezone = "GMT") val resolutiondate: Date?

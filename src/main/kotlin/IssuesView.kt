@@ -180,142 +180,24 @@ fun CurrentIssueActive(
             Spacer(Modifier.height(6.dp))
             FlowRow(horizontalGap = 3.dp, verticalGap = 3.dp) {
                 Column(Modifier.width(220.dp)) {
-                    Label("Assignee") {
-                        Text(
-                            text = issue.fields.assignee?.displayName ?: "",
-                            style = labelValueStyle,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(end = 3.dp)
-                        )
-                    }
-                    Label("Priorität") {
-                        Text(
-                            text = issue.fields.priority?.name ?: "",
-                            style = labelValueStyle,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(end = 3.dp)
-                        )
-                    }
+                    AssigneeField(issue)
+                    PriorityField(issue)
                 }
                 Column(Modifier.width(220.dp)) {
-                    Label("Status") {
-                        Text(
-                            text = issue.fields.status?.name ?: "",
-                            style = labelValueStyle,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(end = 3.dp)
-                        )
-                    }
-                    Label("System") {
-                        Text(
-                            text = issue.fields.system?.value ?: "",
-                            style = labelValueStyle,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(end = 3.dp)
-                        )
-                    }
+                    StatusField(issue)
+                    SystemField(issue)
                 }
                 Column(Modifier.width(220.dp)) {
-                    Label("Art der Anfrage") {
-                        Text(
-                            text = issue.fields.issueType?.value ?: "",
-                            style = labelValueStyle,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(end = 3.dp)
-                        )
-                    }
-                    Label("Kategorie") {
-                        Text(
-                            text = issue.fields.category?.value ?: "",
-                            style = labelValueStyle,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(end = 3.dp)
-                        )
-                    }
+                    TypeField(issue)
+                    CategoryField(issue)
                 }
                 Column(Modifier.width(220.dp)) {
-                    Label("Bereich") {
-                        Text(
-                            text = issue.fields.area?.value ?: "",
-                            style = labelValueStyle,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(end = 3.dp)
-                        )
-                    }
-                    Label("Dienstleister") {
-                        Text(
-                            text = issue.fields.dienstleister?.value ?: "",
-                            style = labelValueStyle,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(end = 3.dp)
-                        )
-                    }
+                    AreaField(issue)
+                    WorkflowField(issue)
                 }
                 Column(Modifier.width(220.dp)) {
-                    val watchers = uiStateFrom(issue.key) { clb: (Result<Watchers>) -> Unit -> repo.getWatchers(issue.key, clb) }.value
-                    if (watchers is UiState.Success) {
-                        val texts = watchers.data.watchers.map { it.displayName ?: "" }
-                        Label("Watchers") {
-                            var expanded by remember { mutableStateOf(false) }
-                            Box {
-                                Text(
-                                    text = "${texts.size} watching",
-                                    style = labelValueStyle,
-                                    modifier = Modifier.padding(end = 3.dp).pointerMoveFilter(
-                                        onEnter = {
-                                            expanded = true
-                                            false
-                                        },
-                                        onExit = {
-                                            expanded = false
-                                            false
-                                        }
-                                    ))
-                                DropdownMenu(expanded = expanded, onDismissRequest = {}) {
-                                    texts.forEach {
-                                        Text(text = it, style = TextStyle(fontSize = 13.sp), modifier = Modifier.padding(4.dp))
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    val transitions = uiStateFrom(issue.key) { clb: (Result<Transitions>) -> Unit ->
-                        repo.getTransitions(issue.key, clb)
-                    }.value
-                    if (transitions is UiState.Success) {
-                        val trans = transitions.data.transitions
-                        Label("Workflow") {
-                            var expanded by remember { mutableStateOf(false) }
-                            Box {
-                                Button(
-                                    onClick = { expanded = true },
-                                    modifier = Modifier.height(18.dp),
-                                    contentPadding = PaddingValues(2.dp)
-                                ) {
-                                    Text("...", fontSize = 12.sp)
-                                }
-                                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                                    trans.forEach {
-                                        Text(
-                                            text = it.name,
-                                            style = TextStyle(fontSize = 13.sp),
-                                            modifier = Modifier.padding(4.dp).clickable {
-                                                //TODO: call transition
-                                            })
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    RequestedParticipantsField(issue)
+                    WatchersField(issue)
                 }
             }
             Spacer(Modifier.height(6.dp))
@@ -381,6 +263,183 @@ fun CurrentIssueActive(
 
             Spacer(Modifier.height(6.dp))
             CommentsList(issue.datedItems, oldestCommentsFirst, commentViewState)
+        }
+    }
+}
+
+@Composable
+fun AssigneeField(issue: Issue) {
+    Label("Assignee") {
+        Text(
+            text = issue.fields.assignee?.displayName ?: "",
+            style = labelValueStyle,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(end = 3.dp)
+        )
+    }
+}
+
+@Composable
+fun PriorityField(issue: Issue) {
+    Label("Priorität") {
+        Text(
+            text = issue.fields.priority?.name ?: "",
+            style = labelValueStyle,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(end = 3.dp)
+        )
+    }
+}
+
+@Composable
+fun StatusField(issue: Issue) {
+    Label("Status") {
+        Text(
+            text = issue.fields.status?.name ?: "",
+            style = labelValueStyle,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(end = 3.dp)
+        )
+    }
+}
+
+@Composable
+fun SystemField(issue: Issue) {
+    Label("System") {
+        Text(
+            text = issue.fields.system?.value ?: "",
+            style = labelValueStyle,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(end = 3.dp)
+        )
+    }
+}
+
+@Composable
+fun TypeField(issue: Issue) {
+    Label("Art") {
+        Text(
+            text = issue.fields.issueType?.value ?: "",
+            style = labelValueStyle,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(end = 3.dp)
+        )
+    }
+}
+
+@Composable
+fun CategoryField(issue: Issue) {
+    Label("Kategorie") {
+        Text(
+            text = issue.fields.category?.value ?: "",
+            style = labelValueStyle,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(end = 3.dp)
+        )
+    }
+}
+
+@Composable
+fun AreaField(issue: Issue) {
+    Label("Bereich") {
+        Text(
+            text = issue.fields.area?.value ?: "",
+            style = labelValueStyle,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(end = 3.dp)
+        )
+    }
+}
+
+@Composable
+fun WorkflowField(issue: Issue) {
+    val repo = Repository.current
+    val transitions = uiStateFrom(issue.key) { clb: (Result<Transitions>) -> Unit -> repo.getTransitions(issue.key, clb) }.value
+    if (transitions is UiState.Success) {
+        val trans = transitions.data.transitions
+        Label("Workflow") {
+            var expanded by remember { mutableStateOf(false) }
+            Box {
+                Button(onClick = { expanded = true }, modifier = Modifier.height(18.dp), contentPadding = PaddingValues(2.dp)) {
+                    Text("...", fontSize = 12.sp)
+                }
+                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    trans.forEach {
+                        Text(text = it.name, style = TextStyle(fontSize = 13.sp), modifier = Modifier.padding(4.dp).clickable {
+                            //TODO: call transition
+                        })
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun RequestedParticipantsField(issue: Issue) {
+    val names = issue.fields.requestedParticipants?.mapNotNull { it?.displayName } ?: emptyList()
+    Label("Requested") {
+        var expanded by remember { mutableStateOf(false) }
+        Box {
+            Text(
+                text = "${names.size} requested",
+                style = labelValueStyle,
+                modifier = Modifier.padding(end = 3.dp).pointerMoveFilter(
+                    onEnter = {
+                        expanded = true
+                        false
+                    },
+                    onExit = {
+                        expanded = false
+                        false
+                    }
+                )
+            )
+            DropdownMenu(expanded = expanded, onDismissRequest = {}) {
+                names.forEach {
+                    Text(text = it, style = TextStyle(fontSize = 13.sp), modifier = Modifier.padding(4.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun WatchersField(issue: Issue) {
+    val repo = Repository.current
+    val watchers = uiStateFrom(issue.key) { clb: (Result<Watchers>) -> Unit -> repo.getWatchers(issue.key, clb) }.value
+    if (watchers is UiState.Success) {
+        val texts = watchers.data.watchers.map { it.displayName ?: "" }
+        Label("Watchers") {
+            var expanded by remember { mutableStateOf(false) }
+            Box {
+                Text(
+                    text = "${texts.size} watching",
+                    style = labelValueStyle,
+                    modifier = Modifier.padding(end = 3.dp).pointerMoveFilter(
+                        onEnter = {
+                            expanded = true
+                            false
+                        },
+                        onExit = {
+                            expanded = false
+                            false
+                        }
+                    )
+                )
+                DropdownMenu(expanded = expanded, onDismissRequest = {}) {
+                    texts.forEach {
+                        Text(text = it, style = TextStyle(fontSize = 13.sp), modifier = Modifier.padding(4.dp))
+                    }
+                }
+            }
         }
     }
 }
