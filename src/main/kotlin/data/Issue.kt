@@ -1,5 +1,6 @@
 package data
 
+import com.fasterxml.jackson.annotation.JsonAnySetter
 import com.fasterxml.jackson.annotation.JsonFormat
 import com.fasterxml.jackson.annotation.JsonProperty
 import java.util.*
@@ -78,3 +79,17 @@ data class Transitions(val transitions: List<Transition>)
 data class Transition(val name: String, val to: TransitionTo)
 
 data class TransitionTo(val id: String)
+
+data class Editmeta(@JsonAnySetter val fields: Map<String, EditMetaField>)
+
+data class EditMetaField(
+    val name: String,
+    val fieldId: String,
+    val schema: EditmetaFieldSchema,
+    val operations: List<String>,
+    val allowedValues: List<AllowedValue>?
+)
+
+data class EditmetaFieldSchema(val type: String)
+
+data class AllowedValue(val value: String?, val name: String?, val id: String, val disabled: Boolean?)

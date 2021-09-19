@@ -31,6 +31,12 @@ class IssueRepository(private val baseUrl: String, private val loginUrl: String,
         }
     }
 
+    fun getEditmeta(key: String, callback: (Result<Editmeta>) -> Unit) {
+        getWithLogin("$baseUrl/issue/$key/editmeta", callback) {
+            callback(Result.Success(it))
+        }
+    }
+
     fun getWatchers(key: String, callback: (Result<Watchers>) -> Unit) {
         getWithLogin("$baseUrl/issue/$key/watchers", callback) {
             callback(Result.Success(it))

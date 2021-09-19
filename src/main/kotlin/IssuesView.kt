@@ -7,6 +7,7 @@ import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -162,107 +163,115 @@ fun CurrentIssueActive(
     commentViewState: MutableState<CommentViewState>
 ) {
     val repo = Repository.current
-    Box(Modifier.fillMaxSize()) {
-        Column(modifier = Modifier.padding(8.dp).fillMaxSize()) {
-            Text(AnnotatedString.Builder().apply {
-                pushStyle(SpanStyle(fontSize = 14.sp))
-                append("Erstellt ")
-                append(timePrinter.format(issueHead.fields.created))
-                issue.fields.reporter?.displayName?.let {
-                    append(" von ")
-                    pushStyle(SpanStyle(fontWeight = FontWeight.Bold))
-                    append(it)
-                    pop()
-                }
-                append("       Zuletzt geändert ")
-                append(timePrinter.format(issueHead.fields.updated))
-            }.toAnnotatedString())
-            Spacer(Modifier.height(6.dp))
-            FlowRow(horizontalGap = 3.dp, verticalGap = 3.dp) {
-                Column(Modifier.width(220.dp)) {
-                    AssigneeField(issue)
-                    PriorityField(issue)
-                }
-                Column(Modifier.width(220.dp)) {
-                    StatusField(issue)
-                    SystemField(issue)
-                }
-                Column(Modifier.width(220.dp)) {
-                    TypeField(issue)
-                    CategoryField(issue)
-                }
-                Column(Modifier.width(220.dp)) {
-                    AreaField(issue)
-                    WorkflowField(issue)
-                }
-                Column(Modifier.width(220.dp)) {
-                    RequestedParticipantsField(issue)
-                    WatchersField(issue)
-                }
-            }
-            Spacer(Modifier.height(6.dp))
-            IssueField("Anhänge") {
-                FlowRow(horizontalGap = 3.dp, verticalGap = 3.dp) {
-                    issue.fields.attachment?.forEach {
-                        Card(onClick = {
-                            repo.downloadAttachment(it.content) {
-                                if (it is Result.Success) {
-                                    Desktop.getDesktop().open(it.data)
-                                }
-                            }
-                        }, border = BorderStroke(1.dp, Color.Gray)) {
-                            Column(Modifier.padding(4.dp)) {
-                                Text(
-                                    text = it.filename,
-                                    maxLines = 1,
-                                    style = attachmentTitleStyle,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.width(160.dp)
-                                )
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                                    Text(
-                                        text = it.mimeType,
-                                        maxLines = 1,
-                                        style = issueDateStyle,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.width(120.dp)
-                                    )
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(text = timePrinter.format(it.created), style = issueDateStyle)
+    val editmetaResult = uiStateFrom(issue.key) { clb: (Result<Editmeta>) -> Unit -> repo.getEditmeta(issue.key, clb) }.value
+    when (editmetaResult) {
+        is UiState.Error -> Error(editmetaResult.exception)
+        is UiState.Loading -> Loader()
+        is UiState.Success -> {
+            val editmeta = editmetaResult.data.fields
+            Box(Modifier.fillMaxSize()) {
+                Column(modifier = Modifier.padding(8.dp).fillMaxSize()) {
+                    Text(AnnotatedString.Builder().apply {
+                        pushStyle(SpanStyle(fontSize = 14.sp))
+                        append("Erstellt ")
+                        append(timePrinter.format(issueHead.fields.created))
+                        issue.fields.reporter?.displayName?.let {
+                            append(" von ")
+                            pushStyle(SpanStyle(fontWeight = FontWeight.Bold))
+                            append(it)
+                            pop()
+                        }
+                        append("       Zuletzt geändert ")
+                        append(timePrinter.format(issueHead.fields.updated))
+                    }.toAnnotatedString())
+                    Spacer(Modifier.height(6.dp))
+                    FlowRow(horizontalGap = 3.dp, verticalGap = 3.dp) {
+                        Column(Modifier.width(220.dp)) {
+                            AssigneeField(issue)
+                            PriorityField(issue, editmeta["priority"])
+                        }
+                        Column(Modifier.width(220.dp)) {
+                            StatusField(issue)
+                            SystemField(issue, editmeta["customfield_14304"])
+                        }
+                        Column(Modifier.width(220.dp)) {
+                            TypeField(issue, editmeta["customfield_14302"])
+                            CategoryField(issue, editmeta["customfield_13902"])
+                        }
+                        Column(Modifier.width(220.dp)) {
+                            AreaField(issue, editmeta["customfield_14303"])
+                            WorkflowField(issue)
+                        }
+                        Column(Modifier.width(220.dp)) {
+                            RequestedParticipantsField(issue)
+                            WatchersField(issue)
+                        }
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    IssueField("Anhänge") {
+                        FlowRow(horizontalGap = 3.dp, verticalGap = 3.dp) {
+                            issue.fields.attachment?.forEach {
+                                Card(onClick = {
+                                    repo.downloadAttachment(it.content) {
+                                        if (it is Result.Success) {
+                                            Desktop.getDesktop().open(it.data)
+                                        }
+                                    }
+                                }, border = BorderStroke(1.dp, Color.Gray)) {
+                                    Column(Modifier.padding(4.dp)) {
+                                        Text(
+                                            text = it.filename,
+                                            maxLines = 1,
+                                            style = attachmentTitleStyle,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.width(160.dp)
+                                        )
+                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                                            Text(
+                                                text = it.mimeType,
+                                                maxLines = 1,
+                                                style = issueDateStyle,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.width(120.dp)
+                                            )
+                                            Spacer(Modifier.width(6.dp))
+                                            Text(text = timePrinter.format(it.created), style = issueDateStyle)
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
-                }
-            }
 
-            issue.fields.freitext?.let {
-                Spacer(Modifier.height(6.dp))
-                IssueField("Freitext") {
-                    SelectionContainer(Modifier.border(1.dp, Color.LightGray).fillMaxWidth()) {
-                        Text(text = it, modifier = Modifier.padding(3.dp))
+                    issue.fields.freitext?.let {
+                        Spacer(Modifier.height(6.dp))
+                        IssueField("Freitext") {
+                            SelectionContainer(Modifier.border(1.dp, Color.LightGray).fillMaxWidth()) {
+                                Text(text = it, modifier = Modifier.padding(3.dp))
+                            }
+                        }
                     }
-                }
-            }
-            issue.fields.helpText?.let {
-                Spacer(Modifier.height(6.dp))
-                IssueField("AP+ URL") {
-                    SelectionContainer(Modifier.border(1.dp, Color.LightGray).fillMaxWidth()) {
-                        Text(text = it, modifier = Modifier.padding(3.dp))
+                    issue.fields.helpText?.let {
+                        Spacer(Modifier.height(6.dp))
+                        IssueField("AP+ URL") {
+                            SelectionContainer(Modifier.border(1.dp, Color.LightGray).fillMaxWidth()) {
+                                Text(text = it, modifier = Modifier.padding(3.dp))
+                            }
+                        }
                     }
-                }
-            }
-            issue.fields.description?.let {
-                Spacer(Modifier.height(6.dp))
-                IssueField("Beschreibung") {
-                    SelectionContainer(Modifier.border(1.dp, Color.LightGray).fillMaxWidth()) {
-                        Text(text = it, modifier = Modifier.padding(3.dp))
+                    issue.fields.description?.let {
+                        Spacer(Modifier.height(6.dp))
+                        IssueField("Beschreibung") {
+                            SelectionContainer(Modifier.border(1.dp, Color.LightGray).fillMaxWidth()) {
+                                Text(text = it, modifier = Modifier.padding(3.dp))
+                            }
+                        }
                     }
-                }
-            }
 
-            Spacer(Modifier.height(6.dp))
-            CommentsList(issue.datedItems, oldestCommentsFirst, commentViewState)
+                    Spacer(Modifier.height(6.dp))
+                    CommentsList(issue.datedItems, oldestCommentsFirst, commentViewState)
+                }
+            }
         }
     }
 }
@@ -281,15 +290,35 @@ fun AssigneeField(issue: Issue) {
 }
 
 @Composable
-fun PriorityField(issue: Issue) {
+fun PriorityField(issue: Issue, editmeta: EditMetaField?) {
     Label("Priorität") {
-        Text(
-            text = issue.fields.priority?.name ?: "",
-            style = labelValueStyle,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(end = 3.dp)
-        )
+        Row {
+            var edit by remember { mutableStateOf(false) }
+            Box {
+                Text(
+                    text = issue.fields.priority?.name ?: "",
+                    style = labelValueStyle,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(end = 3.dp)
+                )
+                if (editmeta != null) {
+                    DropdownMenu(expanded = edit, onDismissRequest = { edit = false }) {
+                        editmeta.allowedValues?.forEach {
+                            Text(text = it.name ?: "-", style = TextStyle(fontSize = 13.sp), modifier = Modifier.padding(4.dp).clickable {
+                                //TODO: call priority update
+                                edit = false
+                            })
+                        }
+                    }
+                }
+            }
+            if (editmeta != null) {
+                IconButton(onClick = { edit = true }, modifier = Modifier.size(18.dp)) {
+                    Icon(Icons.Filled.Edit, "Edit")
+                }
+            }
+        }
     }
 }
 
@@ -307,54 +336,134 @@ fun StatusField(issue: Issue) {
 }
 
 @Composable
-fun SystemField(issue: Issue) {
+fun SystemField(issue: Issue, editmeta: EditMetaField?) {
     Label("System") {
-        Text(
-            text = issue.fields.system?.value ?: "",
-            style = labelValueStyle,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(end = 3.dp)
-        )
+        Row {
+            var edit by remember { mutableStateOf(false) }
+            Box {
+                Text(
+                    text = issue.fields.system?.value ?: "",
+                    style = labelValueStyle,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(end = 3.dp)
+                )
+                if (editmeta != null) {
+                    DropdownMenu(expanded = edit, onDismissRequest = { edit = false }) {
+                        editmeta.allowedValues?.forEach {
+                            Text(text = it.value ?: "-", style = TextStyle(fontSize = 13.sp), modifier = Modifier.padding(4.dp).clickable {
+                                //TODO: call system update
+                                edit = false
+                            })
+                        }
+                    }
+                }
+            }
+            if (editmeta != null) {
+                IconButton(onClick = { edit = true }, modifier = Modifier.size(18.dp)) {
+                    Icon(Icons.Filled.Edit, "Edit")
+                }
+            }
+        }
     }
 }
 
 @Composable
-fun TypeField(issue: Issue) {
+fun TypeField(issue: Issue, editmeta: EditMetaField?) {
     Label("Art") {
-        Text(
-            text = issue.fields.issueType?.value ?: "",
-            style = labelValueStyle,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(end = 3.dp)
-        )
+        Row {
+            var edit by remember { mutableStateOf(false) }
+            Box {
+                Text(
+                    text = issue.fields.issueType?.value ?: "",
+                    style = labelValueStyle,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(end = 3.dp)
+                )
+                if (editmeta != null) {
+                    DropdownMenu(expanded = edit, onDismissRequest = { edit = false }) {
+                        editmeta.allowedValues?.forEach {
+                            Text(text = it.value ?: "-", style = TextStyle(fontSize = 13.sp), modifier = Modifier.padding(4.dp).clickable {
+                                //TODO: call type update
+                                edit = false
+                            })
+                        }
+                    }
+                }
+            }
+            if (editmeta != null) {
+                IconButton(onClick = { edit = true }, modifier = Modifier.size(18.dp)) {
+                    Icon(Icons.Filled.Edit, "Edit")
+                }
+            }
+        }
     }
 }
 
 @Composable
-fun CategoryField(issue: Issue) {
+fun CategoryField(issue: Issue, editmeta: EditMetaField?) {
     Label("Kategorie") {
-        Text(
-            text = issue.fields.category?.value ?: "",
-            style = labelValueStyle,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(end = 3.dp)
-        )
+        Row {
+            var edit by remember { mutableStateOf(false) }
+            Box {
+                Text(
+                    text = issue.fields.category?.value ?: "",
+                    style = labelValueStyle,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(end = 3.dp)
+                )
+                if (editmeta != null) {
+                    DropdownMenu(expanded = edit, onDismissRequest = { edit = false }, modifier = Modifier.requiredSizeIn(maxHeight = 600.dp)) {
+                        editmeta.allowedValues?.forEach {
+                            Text(text = it.value ?: "-", style = TextStyle(fontSize = 13.sp), modifier = Modifier.padding(4.dp).clickable {
+                                //TODO: call category update
+                                edit = false
+                            })
+                        }
+                    }
+                }
+            }
+            if (editmeta != null) {
+                IconButton(onClick = { edit = true }, modifier = Modifier.size(18.dp)) {
+                    Icon(Icons.Filled.Edit, "Edit")
+                }
+            }
+        }
     }
 }
 
 @Composable
-fun AreaField(issue: Issue) {
+fun AreaField(issue: Issue, editmeta: EditMetaField?) {
     Label("Bereich") {
-        Text(
-            text = issue.fields.area?.value ?: "",
-            style = labelValueStyle,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(end = 3.dp)
-        )
+        Row {
+            var edit by remember { mutableStateOf(false) }
+            Box {
+                Text(
+                    text = issue.fields.area?.value ?: "",
+                    style = labelValueStyle,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(end = 3.dp)
+                )
+                if (editmeta != null) {
+                    DropdownMenu(expanded = edit, onDismissRequest = { edit = false }) {
+                        editmeta.allowedValues?.forEach {
+                            Text(text = it.value ?: "-", style = TextStyle(fontSize = 13.sp), modifier = Modifier.padding(4.dp).clickable {
+                                //TODO: call area update
+                                edit = false
+                            })
+                        }
+                    }
+                }
+            }
+            if (editmeta != null) {
+                IconButton(onClick = { edit = true }, modifier = Modifier.size(18.dp)) {
+                    Icon(Icons.Filled.Edit, "Edit")
+                }
+            }
+        }
     }
 }
 
