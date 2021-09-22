@@ -5,22 +5,21 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.pointerMoveFilter
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -166,28 +165,10 @@ fun CurrentIssueActive(issueState: MutableState<Issue>, commentState: MutableSta
                 IssueField("Anhänge") {
                     FlowRow(horizontalGap = 3.dp, verticalGap = 3.dp) {
                         val repo = Repository.current
-                        it.forEach {
-                            val down = { repo.download(it.content) { if (it is Result.Success) Desktop.getDesktop().open(it.data) } }
-                            Card(border = BorderStroke(1.dp, Color.Gray), onClick = down) {
-                                Column(Modifier.padding(4.dp)) {
-                                    Text(
-                                        text = it.filename,
-                                        maxLines = 1,
-                                        style = attachmentTitleStyle,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.width(160.dp)
-                                    )
-                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                                        Text(
-                                            text = it.mimeType,
-                                            maxLines = 1,
-                                            style = issueDateStyle,
-                                            overflow = TextOverflow.Ellipsis,
-                                            modifier = Modifier.width(120.dp)
-                                        )
-                                        Spacer(Modifier.width(6.dp))
-                                        Text(text = timePrinter.format(it.created), style = issueDateStyle)
-                                    }
+                        it.forEach { attachment ->
+                            AttachmentCard(attachment) {
+                                repo.download(attachment.content) {
+                                    if (it is Result.Success) Desktop.getDesktop().open(it.data)
                                 }
                             }
                         }
@@ -236,6 +217,33 @@ fun CurrentIssueActive(issueState: MutableState<Issue>, commentState: MutableSta
             }
             Spacer(Modifier.height(6.dp))
             CommentsList(issueState, commentState)
+        }
+    }
+}
+
+@ExperimentalMaterialApi
+@Composable
+fun AttachmentCard(attachment: Attachment, down: () -> Unit) {
+    Card(border = BorderStroke(1.dp, Color.Gray), onClick = down) {
+        Column(Modifier.padding(4.dp)) {
+            Text(
+                text = attachment.filename,
+                maxLines = 1,
+                style = attachmentTitleStyle,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.width(160.dp)
+            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                Text(
+                    text = attachment.mimeType,
+                    maxLines = 1,
+                    style = issueDateStyle,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.width(120.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(text = timePrinter.format(attachment.created), style = issueDateStyle)
+            }
         }
     }
 }
@@ -734,56 +742,7 @@ fun CommentsList(issue: MutableState<Issue>, commentState: MutableState<CommentS
                 topBar = {
                     TopAppBar(
                         modifier = Modifier.height(24.dp),
-                        title = {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text(
-                                    text = "${items.count { it.isComment }} Kommentare",
-                                    modifier = Modifier.padding(top = 4.dp, bottom = 2.dp),
-                                    style = fieldTitleStyle
-                                )
-                                Spacer(Modifier.width(6.dp))
-                                Button(
-                                    onClick = { commentState.value = commentState.value.copy(ascending = !commentState.value.ascending) },
-                                    modifier = Modifier.height(20.dp),
-                                    contentPadding = PaddingValues(2.dp)
-                                ) {
-                                    Text(if (commentState.value.ascending) "Älteste zuerst" else "Neueste zuerst", fontSize = 12.sp)
-                                }
-                                Spacer(Modifier.width(20.dp))
-                                Button(
-                                    onClick = { commentState.value = commentState.value.copy(filter = CommentFilter.ALL) },
-                                    modifier = Modifier.height(20.dp),
-                                    contentPadding = PaddingValues(2.dp),
-                                    border = if (commentState.value.filter == CommentFilter.ALL) BorderStroke(1.dp, Color.White) else null
-                                ) {
-                                    Text("Alle", fontSize = 12.sp)
-                                }
-                                Spacer(Modifier.width(4.dp))
-                                Button(
-                                    onClick = { commentState.value = commentState.value.copy(filter = CommentFilter.COMMENTS) },
-                                    modifier = Modifier.height(20.dp),
-                                    contentPadding = PaddingValues(2.dp),
-                                    border = if (commentState.value.filter == CommentFilter.COMMENTS) BorderStroke(
-                                        1.dp,
-                                        Color.White
-                                    ) else null
-                                ) {
-                                    Text("Kommentare", fontSize = 12.sp)
-                                }
-                                Spacer(Modifier.width(4.dp))
-                                Button(
-                                    onClick = { commentState.value = commentState.value.copy(filter = CommentFilter.HISTORY) },
-                                    modifier = Modifier.height(20.dp),
-                                    contentPadding = PaddingValues(2.dp),
-                                    border = if (commentState.value.filter == CommentFilter.HISTORY) BorderStroke(
-                                        1.dp,
-                                        Color.White
-                                    ) else null
-                                ) {
-                                    Text("Historie", fontSize = 12.sp)
-                                }
-                            }
-                        },
+                        title = { CommentListHeader(items, commentState) },
                     )
                 },
                 content = {
@@ -813,6 +772,39 @@ fun CommentsList(issue: MutableState<Issue>, commentState: MutableState<CommentS
                 }
             )
         }
+    }
+}
+
+@Composable
+fun CommentListHeader(items: List<DatedIssueItem>, commentState: MutableState<CommentState>) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+        Text("${items.count { it.isComment }} Kommentare", Modifier.padding(top = 4.dp, bottom = 2.dp), style = fieldTitleStyle)
+        Spacer(Modifier.width(6.dp))
+        Button(
+            onClick = { commentState.value = commentState.value.copy(ascending = !commentState.value.ascending) },
+            modifier = Modifier.height(20.dp),
+            contentPadding = PaddingValues(2.dp)
+        ) {
+            Text(if (commentState.value.ascending) "Älteste zuerst" else "Neueste zuerst", fontSize = 12.sp)
+        }
+        Spacer(Modifier.width(20.dp))
+        CommentFilterButton(CommentFilter.ALL, "Alle", commentState)
+        Spacer(Modifier.width(4.dp))
+        CommentFilterButton(CommentFilter.COMMENTS, "Kommentare", commentState)
+        Spacer(Modifier.width(4.dp))
+        CommentFilterButton(CommentFilter.HISTORY, "Historie", commentState)
+    }
+}
+
+@Composable
+fun CommentFilterButton(filter: CommentFilter, text: String, commentState: MutableState<CommentState>) {
+    Button(
+        onClick = { commentState.value = commentState.value.copy(filter = filter) },
+        modifier = Modifier.height(20.dp),
+        contentPadding = PaddingValues(2.dp),
+        border = if (commentState.value.filter == filter) BorderStroke(1.dp, Color.White) else null
+    ) {
+        Text(text, fontSize = 12.sp)
     }
 }
 
@@ -1016,90 +1008,6 @@ fun HistoryItem(history: History) {
     }
 }
 
-@ExperimentalComposeUiApi
-@Composable
-fun CommentEditor(issue: MutableState<Issue>) {
-    val repo = Repository.current
-    var open by remember { mutableStateOf(false) }
-    Card(Modifier.padding(4.dp).fillMaxWidth(), backgroundColor = Color(40, 40, 40), border = BorderStroke(1.dp, Color.Gray)) {
-        Column(Modifier.fillMaxWidth().padding(2.dp)) {
-            if (!open) {
-                Button(onClick = { open = true }, modifier = Modifier.height(22.dp), contentPadding = PaddingValues(2.dp)) {
-                    Text("Kommentieren", fontSize = 13.sp)
-                }
-            } else {
-                val textState = remember { mutableStateOf(TextFieldValue()) }
-                Row(Modifier.fillMaxWidth()) {
-                    IconButton(onClick = { textState.updateText("*") }, modifier = Modifier.size(22.dp)) {
-                        Icon(Icons.Filled.FormatBold, "Bold")
-                    }
-                    Spacer(Modifier.width(2.dp))
-                    IconButton(onClick = { textState.updateText("_") }, modifier = Modifier.size(22.dp)) {
-                        Icon(Icons.Filled.FormatItalic, "Italic")
-                    }
-                }
-                TextField(
-                    value = textState.value,
-                    onValueChange = { textState.value = it },
-                    modifier = Modifier.fillMaxWidth().onPreviewKeyEvent {
-                        when {
-                            it.type == KeyEventType.KeyUp && it.isCtrlPressed && it.key == Key.B -> {
-                                textState.updateText("*")
-                                true
-                            }
-                            else -> false
-                        }
-                    })
-                Row(Modifier.fillMaxWidth()) {
-                    Button(
-                        onClick = {
-                            if (textState.value.text.isNotBlank()) {
-                                repo.addComment(issue.value.key, textState.value.text, false) { res ->
-                                    if (res is Result.Success) {
-                                        repo.getIssue(issue.value.key) {
-                                            if (it is Result.Success) {
-                                                issue.value = it.data
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        },
-                        modifier = Modifier.height(24.dp),
-                        contentPadding = PaddingValues(2.dp)
-                    ) {
-                        Text("Kommentieren", fontSize = 13.sp)
-                    }
-                    Spacer(Modifier.width(10.dp))
-                    Button(
-                        onClick = {
-                            if (textState.value.text.isNotBlank()) {
-                                repo.addComment(issue.value.key, textState.value.text, true) { res ->
-                                    if (res is Result.Success) {
-                                        repo.getIssue(issue.value.key) {
-                                            if (it is Result.Success) {
-                                                issue.value = it.data
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        },
-                        modifier = Modifier.height(24.dp),
-                        contentPadding = PaddingValues(2.dp)
-                    ) {
-                        Text("intern Kommentieren", fontSize = 13.sp)
-                    }
-                    Spacer(Modifier.width(10.dp))
-                    Button(onClick = { open = false }, modifier = Modifier.height(24.dp), contentPadding = PaddingValues(2.dp)) {
-                        Text("Abbrechen", fontSize = 13.sp)
-                    }
-                }
-            }
-        }
-    }
-}
-
 @Composable
 fun Label(label: String, content: @Composable RowScope.() -> Unit) {
     Row(Modifier.fillMaxWidth().padding(3.dp).border(1.dp, Color.Gray), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -1126,20 +1034,6 @@ fun Error(err: String) {
     Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth().padding(20.dp)) {
         Text(text = err, style = TextStyle(color = MaterialTheme.colors.error, fontWeight = FontWeight.Bold))
     }
-}
-
-private fun MutableState<TextFieldValue>.updateText(selected: String) {
-    var newSel = value.selection
-    val new = if (value.selection.collapsed) {
-        val t = value.text.take(newSel.min) + selected + selected + value.text.drop(newSel.min)
-        newSel = TextRange(newSel.min + selected.length, newSel.min + selected.length)
-        t
-    } else {
-        val range = newSel.min until newSel.max
-        newSel = TextRange(newSel.min + selected.length, newSel.max + selected.length)
-        value.text.replaceRange(range, selected + value.text.substring(range) + selected)
-    }
-    value = value.copy(text = new, selection = newSel)
 }
 
 data class CommentState(var filter: CommentFilter, var ascending: Boolean)
