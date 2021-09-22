@@ -22,6 +22,7 @@ dependencies {
     implementation("com.github.kittinunf.fuel:fuel:2.3.1")
     implementation("com.github.kittinunf.fuel:fuel-jackson:2.3.1")
     implementation("org.ocpsoft.prettytime:prettytime:5.0.1.Final")
+    implementation("com.fifesoft:rsyntaxtextarea:3.1.3")
 }
 
 compose.desktop {

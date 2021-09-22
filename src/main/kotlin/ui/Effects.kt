@@ -1,4 +1,7 @@
+package ui
+
 import androidx.compose.runtime.*
+import data.*
 
 typealias RepositoryCall<T> = ((Result<T>) -> Unit) -> Unit
 

@@ -1,8 +1,10 @@
+package data
+
 import com.github.kittinunf.fuel.Fuel
 import com.github.kittinunf.fuel.core.*
+import com.github.kittinunf.fuel.core.interceptors.LogRequestInterceptor
 import com.github.kittinunf.fuel.jackson.objectBody
 import com.github.kittinunf.fuel.jackson.responseObject
-import data.*
 import java.io.File
 
 sealed class Result<out R> {
@@ -10,9 +12,14 @@ sealed class Result<out R> {
     data class Error(val exception: String) : Result<Nothing>()
 }
 
-class IssueRepository(private val baseUrl: String, private val loginUrl: String, private val user: String, private val password: String) {
+class JiraRepository(private val baseUrl: String, private val loginUrl: String, private val user: String, private val password: String) {
 
     private var cookies: List<String> = emptyList()
+
+    init {
+        //DEBUG:
+        FuelManager.instance.addRequestInterceptor(LogRequestInterceptor)
+    }
 
     fun getIssues(filter: String?, callback: (Result<SearchResult>) -> Unit) {
         if (filter.isNullOrBlank()) {
@@ -26,8 +33,14 @@ class IssueRepository(private val baseUrl: String, private val loginUrl: String,
     }
 
     fun getIssue(key: String, callback: (Result<Issue>) -> Unit) {
-        getWithLogin("$baseUrl/issue/$key?expand=changelog", callback) {
+        getWithLogin("$baseUrl/issue/$key?expand=changelog&fields=-comment", callback) {
             callback(Result.Success(it))
+        }
+    }
+
+    fun updateIssue(key: String, update: Update, callback: (Result<Boolean>) -> Unit) {
+        putWithLogin("$baseUrl/issue/$key", update, callback) {
+            callback(Result.Success(true))
         }
     }
 
@@ -43,9 +56,37 @@ class IssueRepository(private val baseUrl: String, private val loginUrl: String,
         }
     }
 
+    fun getComments(key: String, callback: (Result<Comments>) -> Unit) {
+        getWithLogin("$baseUrl/issue/$key/comment?expand=properties", callback) {
+            callback(Result.Success(it))
+        }
+    }
+
     fun getTransitions(key: String, callback: (Result<Transitions>) -> Unit) {
         getWithLogin("$baseUrl/issue/$key/transitions?expand=transitions.fields", callback) {
             callback(Result.Success(it))
+        }
+    }
+
+    fun doTransition(key: String, transition: Update, callback: (Result<Boolean>) -> Unit) {
+        postWithLogin("$baseUrl/issue/$key/transitions", transition, callback) {
+            callback(Result.Success(true))
+        }
+    }
+
+    fun addComment(key: String, text: String, internal: Boolean, callback: (Result<Boolean>) -> Unit) {
+        @Suppress("unused")
+        val obj = object : Any() {
+            val body = text
+            val properties = if (internal) listOf(object : Any() {
+                val key = "sd.public.comment"
+                val value = object : Any() {
+                    val internal = true
+                }
+            }) else null
+        }
+        postWithLogin("$baseUrl/issue/$key/comment", obj, callback) {
+            callback(Result.Success(true))
         }
     }
 
@@ -55,7 +96,7 @@ class IssueRepository(private val baseUrl: String, private val loginUrl: String,
         }
     }
 
-    fun downloadAttachment(path: String, callback: (Result<File>) -> Unit) {
+    fun download(path: String, callback: (Result<File>) -> Unit) {
         downloadWithLogin(path, callback) {
             callback(Result.Success(it))
         }
@@ -143,6 +184,68 @@ class IssueRepository(private val baseUrl: String, private val loginUrl: String,
                             .responseObject { _: Request, response1: Response, result1: com.github.kittinunf.result.Result<T, FuelError> ->
                                 if (response1.isSuccessful && result1.component1() != null && response1.isJsonResponse()) {
                                     onSuccess(result1.get())
+                                } else {
+                                    callback(Result.Error(result.component2()?.message ?: ""))
+                                }
+                            }
+                    }
+                }
+            }
+    }
+
+    private inline fun postWithLogin(
+        path: String,
+        body: Any,
+        crossinline callback: (Result<Boolean>) -> Unit,
+        crossinline onSuccess: () -> Unit
+    ) {
+        Fuel.post(path)
+            .appendHeader(*cookies.map { Headers.COOKIE to it }.toTypedArray())
+            .objectBody(body)
+            .response { _, response, result ->
+                if (response.isSuccessful && result.component2() != null && response.isJsonResponse()) {
+                    callback(Result.Error(result.component2()?.message ?: ""))
+                } else if (response.isSuccessful) {
+                    onSuccess()
+                } else {
+                    withLogin {
+                        Fuel.post(path)
+                            .appendHeader(*cookies.map { Headers.COOKIE to it }.toTypedArray())
+                            .objectBody(body)
+                            .response { _, response, result ->
+                                if (response.isSuccessful) {
+                                    onSuccess()
+                                } else {
+                                    callback(Result.Error(result.component2()?.message ?: ""))
+                                }
+                            }
+                    }
+                }
+            }
+    }
+
+    private inline fun putWithLogin(
+        path: String,
+        body: Any,
+        crossinline callback: (Result<Boolean>) -> Unit,
+        crossinline onSuccess: () -> Unit
+    ) {
+        Fuel.put(path)
+            .appendHeader(*cookies.map { Headers.COOKIE to it }.toTypedArray())
+            .objectBody(body)
+            .response { _, response, result ->
+                if (response.isSuccessful && result.component2() != null && response.isJsonResponse()) {
+                    callback(Result.Error(result.component2()?.message ?: ""))
+                } else if (response.isSuccessful) {
+                    onSuccess()
+                } else {
+                    withLogin {
+                        Fuel.put(path)
+                            .appendHeader(*cookies.map { Headers.COOKIE to it }.toTypedArray())
+                            .objectBody(body)
+                            .response { _, response, result ->
+                                if (response.isSuccessful) {
+                                    onSuccess()
                                 } else {
                                     callback(Result.Error(result.component2()?.message ?: ""))
                                 }

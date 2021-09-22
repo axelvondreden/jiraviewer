@@ -1,17 +1,22 @@
+import data.JiraRepository
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowSize
 import androidx.compose.ui.window.WindowState
 import androidx.compose.ui.window.application
+import ui.IssuesView
+import ui.Repository
 
 /**
  * [args]: baseUrl, loginUrl, username, password
  */
+@ExperimentalComposeUiApi
 @ExperimentalMaterialApi
 fun main(args: Array<String>) = application {
-    val repo = IssueRepository(args[0], args[1], args[2], args[3])
+    val repo = JiraRepository(args[0], args[1], args[2], args[3])
     Window(
         onCloseRequest = ::exitApplication,
         title = "JiraViewer",
