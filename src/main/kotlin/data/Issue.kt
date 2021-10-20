@@ -30,7 +30,9 @@ data class IssueFields(
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'+0000'", timezone = "GMT") val created: Date,
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'+0000'", timezone = "GMT") val updated: Date?,
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'+0000'", timezone = "GMT") val resolutiondate: Date?
-)
+) {
+    fun toHeadFields(): IssueHeadFields = IssueHeadFields(summary, description, status, priority, created, updated)
+}
 
 class DatedIssueItem(val comment: Comment? = null, val history: History? = null) {
     val created get() = if (isComment) comment!!.created else history!!.created

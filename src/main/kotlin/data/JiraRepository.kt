@@ -3,6 +3,7 @@ package data
 import com.github.kittinunf.fuel.Fuel
 import com.github.kittinunf.fuel.core.*
 import com.github.kittinunf.fuel.core.interceptors.LogRequestInterceptor
+import com.github.kittinunf.fuel.core.interceptors.LogResponseInterceptor
 import com.github.kittinunf.fuel.jackson.objectBody
 import com.github.kittinunf.fuel.jackson.responseObject
 import java.io.File
@@ -16,9 +17,12 @@ class JiraRepository(private val baseUrl: String, private val loginUrl: String, 
 
     private var cookies: List<String> = emptyList()
 
+    private val userCache = mutableMapOf<String, String>()
+
     init {
         //DEBUG:
-        FuelManager.instance.addRequestInterceptor(LogRequestInterceptor)
+        //FuelManager.instance.addRequestInterceptor(LogRequestInterceptor)
+        //FuelManager.instance.addResponseInterceptor(LogResponseInterceptor)
     }
 
     fun getIssues(filter: String?, callback: (Result<SearchResult>) -> Unit) {
@@ -35,6 +39,17 @@ class JiraRepository(private val baseUrl: String, private val loginUrl: String, 
     fun getIssue(key: String, callback: (Result<Issue>) -> Unit) {
         getWithLogin("$baseUrl/issue/$key?expand=changelog&fields=-comment", callback) {
             callback(Result.Success(it))
+        }
+    }
+
+    fun getUser(key: String, callback: (Result<DisplayName>) -> Unit) {
+        if (userCache.containsKey(key)) {
+            callback(Result.Success(DisplayName(userCache[key]!!)))
+        } else {
+            getWithLogin("$baseUrl/user?username=$key", callback) {
+                userCache[key] = it.displayName ?: ""
+                callback(Result.Success(it))
+            }
         }
     }
 

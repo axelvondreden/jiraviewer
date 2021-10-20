@@ -2,6 +2,7 @@ package ui
 
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.*
@@ -9,13 +10,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.key.NativeKeyEvent
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.pointer.pointerMoveFilter
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
@@ -29,9 +35,14 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.WindowSize
+import androidx.compose.ui.window.rememberDialogState
 import data.*
+import kotlinx.coroutines.delay
+import org.jetbrains.skija.Image.makeFromEncoded
 import org.ocpsoft.prettytime.PrettyTime
 import java.awt.Desktop
+import java.io.File
 import java.net.URI
 
 val Repository = compositionLocalOf<JiraRepository> { error("Undefined repository") }
@@ -134,8 +145,7 @@ fun CurrentIssueContent(head: IssueHead?, commentState: MutableState<CommentStat
     if (head == null) CurrentIssueStatus { Text("Select issue") }
     else {
         val repo = Repository.current
-        val issue = uiStateFrom(head.key) { clb: (Result<Issue>) -> Unit -> repo.getIssue(head.key, clb) }.value
-        when (issue) {
+        when (val issue = uiStateFrom(head.key) { clb: (Result<Issue>) -> Unit -> repo.getIssue(head.key, clb) }.value) {
             is UiState.Loading -> CurrentIssueStatus { Loader() }
             is UiState.Error -> CurrentIssueStatus { Error("data.Issue loading error") }
             is UiState.Success -> CurrentIssueActiveContainer(issue.data, commentState)
@@ -156,8 +166,7 @@ fun CurrentIssueStatus(content: @Composable () -> Unit) {
 fun CurrentIssueActiveContainer(issue: Issue, commentState: MutableState<CommentState>) {
     val issueState = remember { mutableStateOf(issue) }
     val repo = Repository.current
-    val editRes = uiStateFrom(issueState.value.key) { clb: (Result<Editmeta>) -> Unit -> repo.getEditmeta(issueState.value.key, clb) }.value
-    when (editRes) {
+    when (val editRes = uiStateFrom(issueState.value.key) { clb: (Result<Editmeta>) -> Unit -> repo.getEditmeta(issueState.value.key, clb) }.value) {
         is UiState.Error -> CurrentIssueStatus { Error(editRes.exception) }
         is UiState.Loading -> CurrentIssueStatus { Loader() }
         is UiState.Success -> CurrentIssueActive(issueState, commentState, editRes.data.fields)
@@ -226,12 +235,15 @@ fun CurrentIssueActive(issueState: MutableState<Issue>, commentState: MutableSta
 
 @Composable
 fun ParsedText(text: String, modifier: Modifier = Modifier, fontSize: TextUnit = 14.sp) {
-    val aText = text.parseJiraText(fontSize)
-    ClickableText(text = aText, modifier = modifier, onClick = { offset ->
-        aText.getStringAnnotations(tag = "URL", start = offset, end = offset).firstOrNull()?.let {
-            Desktop.getDesktop().browse(URI(it.item))
-        }
-    })
+    val repo = Repository.current
+    val aText = text.parseJiraText(fontSize, repo)
+    SelectionContainer {
+        ClickableText(text = aText, modifier = modifier, onClick = { offset ->
+            aText.getStringAnnotations(tag = "URL", start = offset, end = offset).firstOrNull()?.let {
+                Desktop.getDesktop().browse(URI(it.item))
+            }
+        })
+    }
 }
 
 @ExperimentalMaterialApi
@@ -724,12 +736,53 @@ fun IssueField(label: String, content: @Composable () -> Unit) {
 
 @Composable
 fun IssuesList(currentIssue: MutableState<IssueHead?>, currentFilter: MutableState<Filter?>) {
+    val repo = Repository.current
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { },
                 actions = {
-                    FilterDropdown(currentIssue, currentFilter)
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        FilterDropdown(currentIssue, currentFilter)
+                        var searchText by remember { mutableStateOf("") }
+                        var loading by remember { mutableStateOf(false) }
+                        var error by remember { mutableStateOf(false) }
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            TextField(
+                                value = searchText,
+                                onValueChange = { error = false; searchText = it },
+                                modifier = Modifier.fillMaxWidth().onKeyEvent { event ->
+                                    if (event.nativeKeyEvent.keyCode == NativeKeyEvent.VK_ENTER) {
+                                        loading = true
+                                        repo.getIssue(searchText) {
+                                            when (it) {
+                                                is Result.Error -> {
+                                                    error = true
+                                                    loading = false
+                                                }
+                                                is Result.Success -> {
+                                                    loading = false
+                                                    val iss = it.data
+                                                    currentIssue.value = IssueHead(iss.id, iss.key, iss.fields.toHeadFields())
+                                                }
+                                            }
+                                        }
+                                    }
+                                    false
+                                },
+                                placeholder = { Text("Search") },
+                                trailingIcon = {
+                                    if (error) {
+                                        Icon(Icons.Filled.Error, "error", tint = Color.Red)
+                                    }
+                                    if (loading) {
+                                        CircularProgressIndicator()
+                                    }
+                                },
+                                singleLine = true
+                            )
+                        }
+                    }
                 }
             )
         },
@@ -743,8 +796,7 @@ fun IssuesList(currentIssue: MutableState<IssueHead?>, currentFilter: MutableSta
 @Composable
 fun CommentsList(issue: MutableState<Issue>, commentState: MutableState<CommentState>) {
     val repo = Repository.current
-    val comments = uiStateFrom(issue.value) { clb: (Result<Comments>) -> Unit -> repo.getComments(issue.value.key, clb) }.value
-    when (comments) {
+    when (val comments = uiStateFrom(issue.value) { clb: (Result<Comments>) -> Unit -> repo.getComments(issue.value.key, clb) }.value) {
         is UiState.Error -> Error(comments.exception)
         is UiState.Loading -> Loader()
         is UiState.Success -> {
@@ -771,7 +823,7 @@ fun CommentsList(issue: MutableState<Issue>, commentState: MutableState<CommentS
                                     if (commentState.value.ascending) items.sortedBy { it.created } else items.sortedByDescending { it.created }
                                 sorted.forEach {
                                     if (it.isComment && commentState.value.filter != CommentFilter.HISTORY) {
-                                        CommentItem(it.comment!!)
+                                        CommentItem(it.comment!!, issue.value.fields.attachment)
                                     } else if (it.isHistory && commentState.value.filter != CommentFilter.COMMENTS) {
                                         HistoryItem(it.history!!)
                                     }
@@ -831,7 +883,7 @@ fun FilterDropdown(currentIssue: MutableState<IssueHead?>, currentFilter: Mutabl
     var expanded by remember { mutableStateOf(false) }
     val repo = Repository.current
     val filters = uiStateFrom(currentFilter) { clb: (Result<List<Filter>>) -> Unit -> repo.getFilters(clb) }
-    Box(Modifier.fillMaxWidth().wrapContentSize(Alignment.CenterStart).border(2.dp, Color.Gray)) {
+    Box(Modifier.fillMaxWidth(0.5F).wrapContentSize(Alignment.CenterStart).border(2.dp, Color.Gray)) {
         Text(currentFilter.value?.name ?: "Filter", modifier = Modifier.clickable(onClick = { expanded = true }).padding(6.dp))
         DropdownMenu(expanded, onDismissRequest = { expanded = false }, modifier = Modifier.requiredSizeIn(maxHeight = 600.dp)) {
             filters.value.let { state ->
@@ -918,7 +970,8 @@ fun ListItem(issueHead: IssueHead) {
 }
 
 @Composable
-fun CommentItem(comment: Comment) {
+fun CommentItem(comment: Comment, attachments: List<Attachment>?) {
+    val repo = Repository.current
     Card(Modifier.padding(4.dp).fillMaxWidth(), backgroundColor = Color(40, 40, 40), border = BorderStroke(1.dp, Color.Gray)) {
         Column(Modifier.fillMaxWidth().padding(2.dp)) {
             Row(Modifier.fillMaxWidth()) {
@@ -956,6 +1009,47 @@ fun CommentItem(comment: Comment) {
             }
             Divider(color = Color.Gray, thickness = 1.dp)
             ParsedText(comment.body, Modifier.fillMaxWidth().padding(3.dp), 16.sp)
+            val references = comment.body.getAttachments()
+            if (references.isNotEmpty()) {
+                Divider(color = Color.Gray, thickness = 1.dp)
+                LazyRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),) {
+                    references.forEach { ref ->
+                        attachments?.firstOrNull { it.filename == ref }?.let {
+                            item {
+                                when (val att = uiStateFrom(it.content) { clb: (Result<File>) -> Unit -> repo.download(it.content, clb) }.value) {
+                                    is UiState.Loading -> CircularProgressIndicator()
+                                    is UiState.Error -> Text(att.exception)
+                                    is UiState.Success -> ClickableImage(att.data)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ClickableImage(file: File) {
+    var showDialog by remember { mutableStateOf(false) }
+    val img = makeFromEncoded(file.readBytes()).asImageBitmap()
+    Image(
+        bitmap = img,
+        contentDescription = "",
+        modifier = Modifier.padding(4.dp).width(200.dp).heightIn(max = 200.dp).clickable { showDialog = true },
+        contentScale = ContentScale.Fit,
+        alignment = Alignment.TopCenter
+    )
+    if (showDialog) {
+        Dialog(onCloseRequest = { showDialog = false }, state = rememberDialogState(size = WindowSize(img.width.dp, img.height.dp)), undecorated = false, resizable = false) {
+            Image(
+                bitmap = img,
+                contentDescription = "",
+                modifier = Modifier.padding(4.dp).fillMaxSize(),
+                contentScale = ContentScale.Fit,
+                alignment = Alignment.TopCenter
+            )
         }
     }
 }
@@ -1064,8 +1158,8 @@ enum class CommentFilter {
     COMMENTS, HISTORY, ALL
 }
 
-private fun String.parseJiraText(fontSize: TextUnit = 14.sp): AnnotatedString {
-    val lines = split("\n").map { it.split(Regex("\\s+")) }
+private fun String.parseJiraText(fontSize: TextUnit = 14.sp, repo: JiraRepository): AnnotatedString {
+    val lines = split("\n").map { it.split(Regex("(\\s+| )")) }
     return AnnotatedString.Builder().apply {
         pushStyle(SpanStyle(color = Color(219, 219, 219), fontSize = fontSize))
         var count = 0
@@ -1085,8 +1179,21 @@ private fun String.parseJiraText(fontSize: TextUnit = 14.sp): AnnotatedString {
                         word.length
                     }
                     word.isMention() -> {
-                        append(word)
-                        word.length
+                        val user = word.getUserFromMention()
+                        var translated = ""
+                        repo.getUser(user) {
+                            translated = when (it) {
+                                is Result.Error -> "[ERROR]"
+                                is Result.Success -> it.data.displayName ?: "[ERROR]"
+                            }
+                        }
+                        while (translated.isEmpty()) {
+                            Thread.sleep(1L)
+                        }
+                        withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                            append(translated)
+                        }
+                        translated.length
                     }
                     else -> {
                         append(word)
@@ -1100,6 +1207,16 @@ private fun String.parseJiraText(fontSize: TextUnit = 14.sp): AnnotatedString {
     }.toAnnotatedString()
 }
 
-private fun String.isHyperlink(): Boolean = startsWith("http")
+private fun String.getAttachments() = split("\n").flatMap { it.split(Regex("\\s+")) }.mapNotNull {
+    if (it.startsWith("!") && it.endsWith("!")) {
+        it.drop(1).dropLast(1).split("|")[0]
+    } else {
+        null
+    }
+}
 
-private fun String.isMention(): Boolean = startsWith("@")
+private fun String.isHyperlink() = startsWith("http")
+
+private fun String.isMention() = startsWith("[~") && endsWith("]")//[~kxde4bef6]
+
+private fun String.getUserFromMention() = drop(2).dropLast(1)
