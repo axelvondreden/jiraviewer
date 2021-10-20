@@ -4,8 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FormatBold
-import androidx.compose.material.icons.filled.FormatItalic
+import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -55,6 +54,7 @@ fun shortcuts(event: KeyEvent, textState: MutableState<TextFieldValue>): Boolean
     when (event.key) {
         Key.B -> textState.updateText("*")
         Key.I -> textState.updateText("_")
+        Key.U -> textState.updateText("+")
     }
     return true
 }
@@ -68,6 +68,34 @@ fun CommentEditorFunctionRow(textState: MutableState<TextFieldValue>) {
         Spacer(Modifier.width(2.dp))
         IconButton(onClick = { textState.updateText("_") }, modifier = Modifier.size(22.dp)) {
             Icon(Icons.Filled.FormatItalic, "Italic")
+        }
+        Spacer(Modifier.width(2.dp))
+        IconButton(onClick = { textState.updateText("+") }, modifier = Modifier.size(22.dp)) {
+            Icon(Icons.Filled.FormatUnderlined, "Underline")
+        }
+        Spacer(Modifier.width(2.dp))
+        IconButton(onClick = { textState.updateText("-") }, modifier = Modifier.size(22.dp)) {
+            Icon(Icons.Filled.FormatStrikethrough, "Strikethrough")
+        }
+        Spacer(Modifier.width(2.dp))
+        IconButton(onClick = { textState.updateText("??") }, modifier = Modifier.size(22.dp)) {
+            Icon(Icons.Filled.FormatQuote, "Citation")
+        }
+        Spacer(Modifier.width(2.dp))
+        IconButton(onClick = { textState.addLine("*") }, modifier = Modifier.size(22.dp)) {
+            Icon(Icons.Filled.FormatListBulleted, "Bulletlist")
+        }
+        Spacer(Modifier.width(2.dp))
+        IconButton(onClick = { textState.addLine("#") }, modifier = Modifier.size(22.dp)) {
+            Icon(Icons.Filled.FormatListNumbered, "Numberedlist")
+        }
+        Spacer(Modifier.width(2.dp))
+        IconButton(onClick = { textState.addLine("||Head 1||Head 2||\n|Col 1|Col 2|") }, modifier = Modifier.size(22.dp)) {
+            Icon(Icons.Filled.TableRows, "Table")
+        }
+        Spacer(Modifier.width(2.dp))
+        IconButton(onClick = { textState.addLine("{code:java}\nString potato;\n{code}") }, modifier = Modifier.size(22.dp)) {
+            Icon(Icons.Filled.Code, "Code")
         }
     }
 }
@@ -134,4 +162,8 @@ private fun MutableState<TextFieldValue>.updateText(selected: String) {
         value.text.replaceRange(range, selected + value.text.substring(range) + selected)
     }
     value = value.copy(text = new, selection = newSel)
+}
+
+private fun MutableState<TextFieldValue>.addLine(line: String) {
+    value = value.copy(text = value.text + "\n$line")
 }

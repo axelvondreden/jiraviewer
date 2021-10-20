@@ -2,6 +2,7 @@ package ui
 
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
@@ -13,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.input.pointer.pointerMoveFilter
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -22,12 +24,15 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import data.*
 import org.ocpsoft.prettytime.PrettyTime
 import java.awt.Desktop
+import java.net.URI
 
 val Repository = compositionLocalOf<JiraRepository> { error("Undefined repository") }
 
@@ -38,6 +43,14 @@ private val attachmentTitleStyle = TextStyle(color = Color.LightGray, fontSize =
 private val fieldTitleStyle = TextStyle(color = Color.LightGray, fontStyle = FontStyle.Italic, fontSize = 14.sp)
 private val labelTitleStyle = TextStyle(fontWeight = FontWeight.Bold, fontSize = 14.sp)
 private val labelValueStyle = TextStyle(fontSize = 14.sp)
+private val scrollbarStyle = ScrollbarStyle(
+    minimalHeight = 16.dp,
+    thickness = 8.dp,
+    shape = RectangleShape,
+    hoverDurationMillis = 0,
+    unhoverColor = Color.White.copy(alpha = 0.12f),
+    hoverColor = Color.White.copy(alpha = 0.12f)
+)
 
 
 @ExperimentalComposeUiApi
@@ -178,41 +191,31 @@ fun CurrentIssueActive(issueState: MutableState<Issue>, commentState: MutableSta
             issueState.value.fields.freitext?.let {
                 Spacer(Modifier.height(6.dp))
                 IssueField("Freitext") {
-                    SelectionContainer(Modifier.border(1.dp, Color.LightGray).fillMaxWidth()) {
-                        Text(text = it, modifier = Modifier.padding(3.dp))
-                    }
+                    ParsedText(it, Modifier.border(1.dp, Color.LightGray).fillMaxWidth().padding(3.dp))
                 }
             }
             issueState.value.fields.fehlermeldung?.let {
                 Spacer(Modifier.height(6.dp))
                 IssueField("Fehlermeldung") {
-                    SelectionContainer(Modifier.border(1.dp, Color.LightGray).fillMaxWidth()) {
-                        Text(text = it, modifier = Modifier.padding(3.dp))
-                    }
+                    ParsedText(it, Modifier.border(1.dp, Color.LightGray).fillMaxWidth().padding(3.dp))
                 }
             }
             issueState.value.fields.helpText?.let {
                 Spacer(Modifier.height(6.dp))
                 IssueField("AP+ URL") {
-                    SelectionContainer(Modifier.border(1.dp, Color.LightGray).fillMaxWidth()) {
-                        Text(text = it, modifier = Modifier.padding(3.dp))
-                    }
+                    ParsedText(it, Modifier.border(1.dp, Color.LightGray).fillMaxWidth().padding(3.dp))
                 }
             }
             issueState.value.fields.helpText2?.let {
                 Spacer(Modifier.height(6.dp))
                 IssueField("AP+ URL") {
-                    SelectionContainer(Modifier.border(1.dp, Color.LightGray).fillMaxWidth()) {
-                        Text(text = it, modifier = Modifier.padding(3.dp))
-                    }
+                    ParsedText(it, Modifier.border(1.dp, Color.LightGray).fillMaxWidth().padding(3.dp))
                 }
             }
             issueState.value.fields.description?.let {
                 Spacer(Modifier.height(6.dp))
                 IssueField("Beschreibung") {
-                    SelectionContainer(Modifier.border(1.dp, Color.LightGray).fillMaxWidth()) {
-                        Text(text = it, modifier = Modifier.padding(3.dp))
-                    }
+                    ParsedText(it, Modifier.border(1.dp, Color.LightGray).fillMaxWidth().padding(3.dp), 16.sp)
                 }
             }
             Spacer(Modifier.height(6.dp))
@@ -221,25 +224,36 @@ fun CurrentIssueActive(issueState: MutableState<Issue>, commentState: MutableSta
     }
 }
 
+@Composable
+fun ParsedText(text: String, modifier: Modifier = Modifier, fontSize: TextUnit = 14.sp) {
+    val aText = text.parseJiraText(fontSize)
+    ClickableText(text = aText, modifier = modifier, onClick = { offset ->
+        aText.getStringAnnotations(tag = "URL", start = offset, end = offset).firstOrNull()?.let {
+            Desktop.getDesktop().browse(URI(it.item))
+        }
+    })
+}
+
 @ExperimentalMaterialApi
 @Composable
 fun AttachmentCard(attachment: Attachment, down: () -> Unit) {
-    Card(border = BorderStroke(1.dp, Color.Gray), onClick = down) {
+    var expanded by remember { mutableStateOf(false) }
+    Card(modifier = Modifier.pointerMoveFilter(onEnter = { expanded = true; false }, onExit = { expanded = false; false }), border = BorderStroke(1.dp, Color.Gray), onClick = down) {
         Column(Modifier.padding(4.dp)) {
             Text(
                 text = attachment.filename,
                 maxLines = 1,
                 style = attachmentTitleStyle,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.width(160.dp)
+                overflow = if (expanded) TextOverflow.Clip else TextOverflow.Ellipsis,
+                modifier = if (expanded) Modifier.widthIn(min = 160.dp) else Modifier.width(160.dp)
             )
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                 Text(
                     text = attachment.mimeType,
                     maxLines = 1,
                     style = issueDateStyle,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.width(120.dp)
+                    overflow = if (expanded) TextOverflow.Clip else TextOverflow.Ellipsis,
+                    modifier = if (expanded) Modifier.widthIn(min = 120.dp) else Modifier.width(120.dp)
                 )
                 Spacer(Modifier.width(6.dp))
                 Text(text = timePrinter.format(attachment.created), style = issueDateStyle)
@@ -767,7 +781,11 @@ fun CommentsList(issue: MutableState<Issue>, commentState: MutableState<CommentS
                                 }
                             }
                         }
-                        VerticalScrollbar(rememberScrollbarAdapter(scroll), Modifier.align(Alignment.CenterEnd).fillMaxHeight())
+                        VerticalScrollbar(
+                            adapter = rememberScrollbarAdapter(scroll),
+                            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
+                            style = scrollbarStyle
+                        )
                     }
                 }
             )
@@ -888,11 +906,11 @@ fun ListItem(issueHead: IssueHead) {
             Text(issueHead.fields.summary ?: "")
             Row {
                 issueHead.fields.status?.name?.let {
-                    Text(it, modifier = Modifier.padding(2.dp))
+                    Text(it, modifier = Modifier.padding(2.dp), color = Color.Gray)
                 }
                 issueHead.fields.priority?.name?.let {
                     Spacer(Modifier.width(5.dp))
-                    Text(it, modifier = Modifier.padding(2.dp))
+                    Text(it, modifier = Modifier.padding(2.dp), color = Color.Gray)
                 }
             }
         }
@@ -904,26 +922,29 @@ fun CommentItem(comment: Comment) {
     Card(Modifier.padding(4.dp).fillMaxWidth(), backgroundColor = Color(40, 40, 40), border = BorderStroke(1.dp, Color.Gray)) {
         Column(Modifier.fillMaxWidth().padding(2.dp)) {
             Row(Modifier.fillMaxWidth()) {
-                Text(AnnotatedString.Builder().apply {
-                    append("Kommentar")
-                    comment.author.displayName?.let {
-                        append(" von ")
-                        pushStyle(SpanStyle(fontWeight = FontWeight.Bold))
-                        append(it)
-                        pop()
-                    }
-                    append(" ")
-                    append(timePrinter.format(comment.created))
-                    comment.updateAuthor?.displayName?.let {
-                        append("       Geändert")
-                        append(" von ")
-                        pushStyle(SpanStyle(fontWeight = FontWeight.Bold))
-                        append(it)
-                        pop()
+                Text(
+                    text = AnnotatedString.Builder().apply {
+                        append("Kommentar")
+                        comment.author.displayName?.let {
+                            append(" von ")
+                            pushStyle(SpanStyle(fontWeight = FontWeight.Bold))
+                            append(it)
+                            pop()
+                        }
                         append(" ")
-                        append(timePrinter.format(comment.updated))
-                    }
-                }.toAnnotatedString())
+                        append(timePrinter.format(comment.created))
+                        comment.updateAuthor?.displayName?.let {
+                            append("       Geändert")
+                            append(" von ")
+                            pushStyle(SpanStyle(fontWeight = FontWeight.Bold))
+                            append(it)
+                            pop()
+                            append(" ")
+                            append(timePrinter.format(comment.updated))
+                        }
+                    }.toAnnotatedString(),
+                    color = Color.Gray
+                )
                 comment.properties.firstOrNull { it.key == "sd.public.comment" }?.let {
                     if (it.value["internal"] == true) {
                         Spacer(Modifier.width(10.dp))
@@ -934,9 +955,7 @@ fun CommentItem(comment: Comment) {
                 }
             }
             Divider(color = Color.Gray, thickness = 1.dp)
-            SelectionContainer(Modifier.fillMaxWidth()) {
-                Text(text = comment.body, modifier = Modifier.padding(3.dp))
-            }
+            ParsedText(comment.body, Modifier.fillMaxWidth().padding(3.dp), 16.sp)
         }
     }
 }
@@ -945,17 +964,20 @@ fun CommentItem(comment: Comment) {
 fun HistoryItem(history: History) {
     Card(Modifier.padding(4.dp).fillMaxWidth(), backgroundColor = Color(40, 40, 40), border = BorderStroke(1.dp, Color.Gray)) {
         Column(Modifier.fillMaxWidth().padding(2.dp)) {
-            Text(AnnotatedString.Builder().apply {
-                append("Änderung")
-                history.author.displayName?.let {
-                    append(" von ")
-                    pushStyle(SpanStyle(fontWeight = FontWeight.Bold))
-                    append(it)
-                    pop()
-                }
-                append(" ")
-                append(timePrinter.format(history.created))
-            }.toAnnotatedString())
+            Text(
+                text = AnnotatedString.Builder().apply {
+                    append("Änderung")
+                    history.author.displayName?.let {
+                        append(" von ")
+                        pushStyle(SpanStyle(fontWeight = FontWeight.Bold))
+                        append(it)
+                        pop()
+                    }
+                    append(" ")
+                    append(timePrinter.format(history.created))
+                }.toAnnotatedString(),
+                color = Color.Gray
+            )
             Divider(color = Color.Gray, thickness = 1.dp)
             history.items.forEach {
                 Row(Modifier.fillMaxWidth()) {
@@ -1041,3 +1063,43 @@ data class CommentState(var filter: CommentFilter, var ascending: Boolean)
 enum class CommentFilter {
     COMMENTS, HISTORY, ALL
 }
+
+private fun String.parseJiraText(fontSize: TextUnit = 14.sp): AnnotatedString {
+    val lines = split("\n").map { it.split(Regex("\\s+")) }
+    return AnnotatedString.Builder().apply {
+        pushStyle(SpanStyle(color = Color(219, 219, 219), fontSize = fontSize))
+        var count = 0
+        lines.forEachIndexed { index, line ->
+            if (index > 0) {
+                append("\n")
+                count++
+            }
+            line.forEach { word ->
+                count += when {
+                    word.isHyperlink() -> {
+                        pushStringAnnotation(tag = "URL", annotation = word)
+                        withStyle(style = SpanStyle(color = Color(88, 129, 252))) {
+                            append(word)
+                        }
+                        pop()
+                        word.length
+                    }
+                    word.isMention() -> {
+                        append(word)
+                        word.length
+                    }
+                    else -> {
+                        append(word)
+                        word.length
+                    }
+                }
+                append(" ")
+                count++
+            }
+        }
+    }.toAnnotatedString()
+}
+
+private fun String.isHyperlink(): Boolean = startsWith("http")
+
+private fun String.isMention(): Boolean = startsWith("@")
