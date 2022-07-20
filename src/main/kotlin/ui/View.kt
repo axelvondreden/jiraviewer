@@ -17,8 +17,9 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.input.key.NativeKeyEvent
+import androidx.compose.ui.graphics.toComposeImageBitmap
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.pointer.pointerMoveFilter
 import androidx.compose.ui.layout.ContentScale
@@ -31,15 +32,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.WindowSize
 import androidx.compose.ui.window.rememberDialogState
 import data.*
-import kotlinx.coroutines.delay
-import org.jetbrains.skija.Image.makeFromEncoded
+import org.jetbrains.skia.Image.Companion.makeFromEncoded
 import org.ocpsoft.prettytime.PrettyTime
 import java.awt.Desktop
 import java.io.File
@@ -138,8 +138,8 @@ fun CurrentIssue(issueState: MutableState<IssueHead?>, commentState: MutableStat
     )
 }
 
-@ExperimentalMaterialApi
 @ExperimentalComposeUiApi
+@ExperimentalMaterialApi
 @Composable
 fun CurrentIssueContent(head: IssueHead?, commentState: MutableState<CommentState>) {
     if (head == null) CurrentIssueStatus { Text("Select issue") }
@@ -247,6 +247,7 @@ fun ParsedText(text: String, modifier: Modifier = Modifier, fontSize: TextUnit =
 }
 
 @ExperimentalMaterialApi
+@ExperimentalComposeUiApi
 @Composable
 fun AttachmentCard(attachment: Attachment, down: () -> Unit) {
     var expanded by remember { mutableStateOf(false) }
@@ -316,6 +317,7 @@ fun IssueHeaderInfo(issueState: MutableState<Issue>) {
     }
 }
 
+@ExperimentalComposeUiApi
 @Composable
 fun IssueFields(issueState: MutableState<Issue>, editmeta: Map<String, EditMetaField>) {
     FlowRow(horizontalGap = 3.dp, verticalGap = 3.dp) {
@@ -656,6 +658,7 @@ fun WorkflowField(issue: MutableState<Issue>) {
     }
 }
 
+@ExperimentalComposeUiApi
 @Composable
 fun RequestedParticipantsField(issue: MutableState<Issue>) {
     val names = issue.value.fields.requestedParticipants?.mapNotNull { it?.displayName } ?: emptyList()
@@ -685,6 +688,7 @@ fun RequestedParticipantsField(issue: MutableState<Issue>) {
     }
 }
 
+@ExperimentalComposeUiApi
 @Composable
 fun WatchersField(issue: MutableState<Issue>) {
     val repo = Repository.current
@@ -734,6 +738,7 @@ fun IssueField(label: String, content: @Composable () -> Unit) {
     }
 }
 
+@ExperimentalComposeUiApi
 @Composable
 fun IssuesList(currentIssue: MutableState<IssueHead?>, currentFilter: MutableState<Filter?>) {
     val repo = Repository.current
@@ -752,7 +757,7 @@ fun IssuesList(currentIssue: MutableState<IssueHead?>, currentFilter: MutableSta
                                 value = searchText,
                                 onValueChange = { error = false; searchText = it },
                                 modifier = Modifier.fillMaxWidth().onKeyEvent { event ->
-                                    if (event.nativeKeyEvent.keyCode == NativeKeyEvent.VK_ENTER) {
+                                    if (event.key == Key.Enter) {
                                         loading = true
                                         repo.getIssue(searchText) {
                                             when (it) {
@@ -1012,7 +1017,7 @@ fun CommentItem(comment: Comment, attachments: List<Attachment>?) {
             val references = comment.body.getAttachments()
             if (references.isNotEmpty()) {
                 Divider(color = Color.Gray, thickness = 1.dp)
-                LazyRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),) {
+                LazyRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     references.forEach { ref ->
                         attachments?.firstOrNull { it.filename == ref }?.let {
                             item {
@@ -1033,7 +1038,7 @@ fun CommentItem(comment: Comment, attachments: List<Attachment>?) {
 @Composable
 fun ClickableImage(file: File) {
     var showDialog by remember { mutableStateOf(false) }
-    val img = makeFromEncoded(file.readBytes()).asImageBitmap()
+    val img = makeFromEncoded(file.readBytes()).toComposeImageBitmap()
     Image(
         bitmap = img,
         contentDescription = "",
@@ -1042,7 +1047,7 @@ fun ClickableImage(file: File) {
         alignment = Alignment.TopCenter
     )
     if (showDialog) {
-        Dialog(onCloseRequest = { showDialog = false }, state = rememberDialogState(size = WindowSize(img.width.dp, img.height.dp)), undecorated = false, resizable = false) {
+        Dialog(onCloseRequest = { showDialog = false }, state = rememberDialogState(size = DpSize(img.width.dp, img.height.dp)), undecorated = false, resizable = false) {
             Image(
                 bitmap = img,
                 contentDescription = "",
@@ -1054,6 +1059,7 @@ fun ClickableImage(file: File) {
     }
 }
 
+@ExperimentalComposeUiApi
 @Composable
 fun HistoryItem(history: History) {
     Card(Modifier.padding(4.dp).fillMaxWidth(), backgroundColor = Color(40, 40, 40), border = BorderStroke(1.dp, Color.Gray)) {

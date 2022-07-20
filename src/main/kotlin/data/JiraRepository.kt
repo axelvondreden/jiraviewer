@@ -2,8 +2,6 @@ package data
 
 import com.github.kittinunf.fuel.Fuel
 import com.github.kittinunf.fuel.core.*
-import com.github.kittinunf.fuel.core.interceptors.LogRequestInterceptor
-import com.github.kittinunf.fuel.core.interceptors.LogResponseInterceptor
 import com.github.kittinunf.fuel.jackson.objectBody
 import com.github.kittinunf.fuel.jackson.responseObject
 import java.io.File
