@@ -77,65 +77,82 @@ fun IssuesView() {
 @ExperimentalMaterialApi
 @Composable
 fun Main() {
+    val openedIssues: MutableState<List<IssueHead>> = remember { mutableStateOf(emptyList()) }
     val currentIssue: MutableState<IssueHead?> = remember { mutableStateOf(null) }
     val currentFilter: MutableState<Filter?> = remember { mutableStateOf(null) }
     val commentState = remember { mutableStateOf(CommentState(CommentFilter.COMMENTS, true)) }
-    BoxWithConstraints {
-        if (maxWidth.value > 1000) {
-            TwoColLayout(currentIssue, currentFilter, commentState)
-        } else {
-            SingleColLayout(currentIssue, currentFilter, commentState)
-        }
-    }
+    TwoColLayout(openedIssues, currentIssue, currentFilter, commentState)
 }
 
 @ExperimentalComposeUiApi
 @ExperimentalMaterialApi
 @Composable
-fun SingleColLayout(issueState: MutableState<IssueHead?>, filterState: MutableState<Filter?>, commentState: MutableState<CommentState>) {
-    if (issueState.value == null) {
-        IssuesList(issueState, filterState)
-    } else {
-        CurrentIssue(issueState, commentState, true)
-    }
-}
-
-@ExperimentalComposeUiApi
-@ExperimentalMaterialApi
-@Composable
-fun TwoColLayout(issueState: MutableState<IssueHead?>, filterState: MutableState<Filter?>, commentState: MutableState<CommentState>) {
+fun TwoColLayout(
+    openedIssues: MutableState<List<IssueHead>>,
+    issueState: MutableState<IssueHead?>,
+    filterState: MutableState<Filter?>,
+    commentState: MutableState<CommentState>
+) {
     Row(Modifier.fillMaxSize()) {
         Box(modifier = Modifier.fillMaxWidth(0.25f), contentAlignment = Alignment.Center) {
-            IssuesList(issueState, filterState)
+            IssuesList(openedIssues, issueState, filterState)
         }
-        CurrentIssue(issueState, commentState, false)
+        OpenedIssues(openedIssues, issueState, commentState, false)
     }
 }
 
 @ExperimentalComposeUiApi
 @ExperimentalMaterialApi
 @Composable
-fun CurrentIssue(issueState: MutableState<IssueHead?>, commentState: MutableState<CommentState>, backButton: Boolean) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    SelectionContainer {
-                        Text(
-                            text = if (issueState.value != null) "${issueState.value!!.key}: ${issueState.value!!.fields.summary}" else "",
-                            style = MaterialTheme.typography.h5,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+fun OpenedIssues(
+    openedIssues: MutableState<List<IssueHead>>,
+    issueState: MutableState<IssueHead?>,
+    commentState: MutableState<CommentState>,
+    backButton: Boolean
+) {
+    Column {
+        if (openedIssues.value.isNotEmpty()) {
+            var index = openedIssues.value.indexOf(issueState.value)
+            if (index < 0) index = 0
+            ScrollableTabRow(selectedTabIndex = index, modifier = Modifier.fillMaxWidth()) {
+                openedIssues.value.forEachIndexed { i, issueHead ->
+                    Tab(selected = i == index, onClick = { issueState.value = issueHead }, modifier = Modifier.height(28.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(issueHead.key)
+                            IconButton(onClick = {
+                                if (issueState.value == issueHead) {
+                                    issueState.value = null
+                                }
+                                openedIssues.value = openedIssues.value.minus(issueHead)
+                            }) {
+                                Icon(Icons.Default.Close, "close")
+                            }
+                        }
                     }
-                },
-                navigationIcon = if (backButton) {
-                    { Button(onClick = { issueState.value = null }) { Text(text = "Back") } }
-                } else null
-            )
-        },
-        content = { CurrentIssueContent(issueState.value, commentState) }
-    )
+                }
+            }
+        }
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        SelectionContainer {
+                            Text(
+                                text = if (issueState.value != null) "${issueState.value!!.key}: ${issueState.value!!.fields.summary}" else "",
+                                style = MaterialTheme.typography.h5,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    },
+                    navigationIcon = if (backButton) {
+                        { Button(onClick = { issueState.value = null }) { Text(text = "Back") } }
+                    } else null
+                )
+            },
+            content = { CurrentIssueContent(issueState.value, commentState) }
+        )
+    }
 }
 
 @ExperimentalComposeUiApi
@@ -251,7 +268,11 @@ fun ParsedText(text: String, modifier: Modifier = Modifier, fontSize: TextUnit =
 @Composable
 fun AttachmentCard(attachment: Attachment, down: () -> Unit) {
     var expanded by remember { mutableStateOf(false) }
-    Card(modifier = Modifier.pointerMoveFilter(onEnter = { expanded = true; false }, onExit = { expanded = false; false }), border = BorderStroke(1.dp, Color.Gray), onClick = down) {
+    Card(
+        modifier = Modifier.pointerMoveFilter(onEnter = { expanded = true; false }, onExit = { expanded = false; false }),
+        border = BorderStroke(1.dp, Color.Gray),
+        onClick = down
+    ) {
         Column(Modifier.padding(4.dp)) {
             Text(
                 text = attachment.filename,
@@ -740,7 +761,7 @@ fun IssueField(label: String, content: @Composable () -> Unit) {
 
 @ExperimentalComposeUiApi
 @Composable
-fun IssuesList(currentIssue: MutableState<IssueHead?>, currentFilter: MutableState<Filter?>) {
+fun IssuesList(openedIssues: MutableState<List<IssueHead>>, currentIssue: MutableState<IssueHead?>, currentFilter: MutableState<Filter?>) {
     val repo = Repository.current
     Scaffold(
         topBar = {
@@ -765,10 +786,13 @@ fun IssuesList(currentIssue: MutableState<IssueHead?>, currentFilter: MutableSta
                                                     error = true
                                                     loading = false
                                                 }
+
                                                 is Result.Success -> {
                                                     loading = false
                                                     val iss = it.data
-                                                    currentIssue.value = IssueHead(iss.id, iss.key, iss.fields.toHeadFields())
+                                                    val head = IssueHead(iss.id, iss.key, iss.fields.toHeadFields())
+                                                    openedIssues.value = openedIssues.value.minus(head).plus(head)
+                                                    currentIssue.value = head
                                                 }
                                             }
                                         }
@@ -792,7 +816,7 @@ fun IssuesList(currentIssue: MutableState<IssueHead?>, currentFilter: MutableSta
             )
         },
         content = {
-            ListBody(currentIssue, currentFilter)
+            ListBody(openedIssues, currentIssue, currentFilter)
         }
     )
 }
@@ -905,6 +929,7 @@ fun FilterDropdown(currentIssue: MutableState<IssueHead?>, currentFilter: Mutabl
                             }
                         }
                     }
+
                     is UiState.Loading -> Loader()
                     is UiState.Error -> Error(state.exception)
                 }
@@ -919,7 +944,7 @@ fun FilterDropdown(currentIssue: MutableState<IssueHead?>, currentFilter: Mutabl
 }
 
 @Composable
-fun ListBody(currentIssue: MutableState<IssueHead?>, currentFilter: MutableState<Filter?>) {
+fun ListBody(openedIssues: MutableState<List<IssueHead>>, currentIssue: MutableState<IssueHead?>, currentFilter: MutableState<Filter?>) {
     val repo = Repository.current
     val issues = uiStateFrom(currentFilter.value?.jql) { clb: (Result<SearchResult>) -> Unit ->
         repo.getIssues(currentFilter.value?.jql, clb)
@@ -933,11 +958,18 @@ fun ListBody(currentIssue: MutableState<IssueHead?>, currentFilter: MutableState
                     when (it) {
                         is UiState.Success -> {
                             it.data.issues.forEach { iss ->
-                                Box(Modifier.clickable { currentIssue.value = iss }, contentAlignment = Alignment.CenterStart) {
+                                Box(
+                                    modifier = Modifier.clickable {
+                                        openedIssues.value = openedIssues.value.minus(iss).plus(iss)
+                                        currentIssue.value = iss
+                                    },
+                                    contentAlignment = Alignment.CenterStart
+                                ) {
                                     ListItem(iss)
                                 }
                             }
                         }
+
                         is UiState.Loading -> Loader()
                         is UiState.Error -> Error(it.exception)
                     }
@@ -1047,7 +1079,12 @@ fun ClickableImage(file: File) {
         alignment = Alignment.TopCenter
     )
     if (showDialog) {
-        Dialog(onCloseRequest = { showDialog = false }, state = rememberDialogState(size = DpSize(img.width.dp, img.height.dp)), undecorated = false, resizable = false) {
+        Dialog(
+            onCloseRequest = { showDialog = false },
+            state = rememberDialogState(size = DpSize(img.width.dp, img.height.dp)),
+            undecorated = false,
+            resizable = false
+        ) {
             Image(
                 bitmap = img,
                 contentDescription = "",
@@ -1184,6 +1221,7 @@ private fun String.parseJiraText(fontSize: TextUnit = 14.sp, repo: JiraRepositor
                         pop()
                         word.length
                     }
+
                     word.isMention() -> {
                         val user = word.getUserFromMention()
                         var translated = ""
@@ -1201,6 +1239,7 @@ private fun String.parseJiraText(fontSize: TextUnit = 14.sp, repo: JiraRepositor
                         }
                         translated.length
                     }
+
                     else -> {
                         append(word)
                         word.length
