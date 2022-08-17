@@ -25,6 +25,7 @@ jobs:
     needs:
       - debian_build
       - windows_build
+      - jar_build
     name: Release
     runs-on: ubuntu-latest
     steps:
@@ -49,6 +50,11 @@ jobs:
       with:
         name: windows-distribution
         path: distributions
+    - name: Download Jar Artifact
+      uses: actions/download-artifact@v2
+      with:
+        name: jar-distribution
+        path: distributions
     - name: Latest Tag
       id: latest_tag
       uses: "WyriHaximus/github-action-get-previous-tag@master"
@@ -69,6 +75,15 @@ jobs:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: distributions/jiraviewer-${{ steps.latest_tag.outputs.tag }}.msi
         asset_name: jiraviewer-${{ steps.latest_tag.outputs.tag }}.msi
+        asset_content_type: application/zip
+    - name: Upload Jar Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: distributions/jiraviewer-${{ steps.latest_tag.outputs.tag }}.jar
+        asset_name: jiraviewer-${{ steps.latest_tag.outputs.tag }}.jar
         asset_content_type: application/zip
 
   debian_build:
@@ -112,3 +127,25 @@ jobs:
         with:
           name: windows-distribution
           path: build\compose\binaries\main\msi\*.msi
+  
+  jar_build:
+    needs: build
+    name: jar Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2.4.2
+      - name: Set up JDK
+        uses: actions/setup-java@v3.4.1
+        with:
+          java-version: 17
+          distribution: 'corretto'
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+      - name: Create Jar Distribution
+        run: ./gradlew packageUberJarForCurrentOS
+      - name: Upload Jar Artifact
+        uses: actions/upload-artifact@v3.1.0
+        with:
+          name: jar-distribution
+          path: build\compose\jars\*.jar
+
