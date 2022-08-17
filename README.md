@@ -1,0 +1,1 @@
+### Native Jira client in case direct API-access is not available
