@@ -28,8 +28,9 @@ compose.desktop {
         mainClass = "MainKt"
 
         nativeDistributions {
-            targetFormats(TargetFormat.Exe)
+            targetFormats(TargetFormat.Exe, TargetFormat.Msi)
             packageName = "JiraViewer"
+            packageVersion = "0.0.4"
         }
     }
 }

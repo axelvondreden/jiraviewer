@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -32,7 +33,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.*
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.rememberDialogState
 import data.*
@@ -76,7 +80,7 @@ fun IssuesView() {
 @ExperimentalMaterialApi
 @Composable
 fun Main() {
-    val openedIssues: MutableState<List<IssueHead>> = remember { mutableStateOf(emptyList()) }
+    val openedIssues: SnapshotStateList<IssueHead> = remember { mutableStateListOf() }
     val currentIssue: MutableState<IssueHead?> = remember { mutableStateOf(null) }
     val currentFilter: MutableState<Filter?> = remember { mutableStateOf(null) }
     val commentState = remember { mutableStateOf(CommentState(CommentFilter.COMMENTS, true)) }
@@ -87,7 +91,7 @@ fun Main() {
 @ExperimentalMaterialApi
 @Composable
 fun TwoColLayout(
-    openedIssues: MutableState<List<IssueHead>>,
+    openedIssues: SnapshotStateList<IssueHead>,
     issueState: MutableState<IssueHead?>,
     filterState: MutableState<Filter?>,
     commentState: MutableState<CommentState>
@@ -109,25 +113,24 @@ fun TwoColLayout(
 @ExperimentalMaterialApi
 @Composable
 fun OpenedIssues(
-    openedIssues: MutableState<List<IssueHead>>,
+    openedIssues: SnapshotStateList<IssueHead>,
     issueState: MutableState<IssueHead?>,
     commentState: MutableState<CommentState>,
     backButton: Boolean
 ) {
     Column {
-        if (openedIssues.value.isNotEmpty()) {
-            var index = openedIssues.value.indexOf(issueState.value)
-            if (index < 0) index = 0
-            ScrollableTabRow(selectedTabIndex = index, modifier = Modifier.fillMaxWidth()) {
-                openedIssues.value.forEachIndexed { i, issueHead ->
+        if (openedIssues.isNotEmpty()) {
+            val index = openedIssues.indexOf(issueState.value).coerceAtLeast(0)
+            ScrollableTabRow(selectedTabIndex = index, modifier = Modifier.fillMaxWidth(), edgePadding = 10.dp) {
+                openedIssues.forEachIndexed { i, issueHead ->
                     Tab(selected = i == index, onClick = { issueState.value = issueHead }, modifier = Modifier.height(28.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(issueHead.key)
                             IconButton(onClick = {
-                                if (issueState.value == issueHead) {
-                                    issueState.value = null
-                                }
-                                openedIssues.value = openedIssues.value.minus(issueHead)
+                                // close the current tab and open the one to the right
+                                val oldIndex = openedIssues.indexOf(issueHead)
+                                openedIssues.remove(issueHead)
+                                issueState.value = openedIssues.getOrNull(oldIndex.coerceIn(openedIssues.indices))
                             }) {
                                 Icon(Icons.Default.Close, "close")
                             }
@@ -765,7 +768,7 @@ fun IssueField(label: String, content: @Composable () -> Unit) {
 
 @ExperimentalComposeUiApi
 @Composable
-fun IssuesList(openedIssues: MutableState<List<IssueHead>>, currentIssue: MutableState<IssueHead?>, currentFilter: MutableState<Filter?>) {
+fun IssuesList(openedIssues: SnapshotStateList<IssueHead>, currentIssue: MutableState<IssueHead?>, currentFilter: MutableState<Filter?>) {
     val repo = Repository.current
     Scaffold(
         topBar = {
@@ -795,7 +798,7 @@ fun IssuesList(openedIssues: MutableState<List<IssueHead>>, currentIssue: Mutabl
                                                     loading = false
                                                     val iss = it.data
                                                     val head = IssueHead(iss.id, iss.key, iss.fields.toHeadFields())
-                                                    openedIssues.value = openedIssues.value.minus(head).plus(head)
+                                                    if (head !in openedIssues) openedIssues += head
                                                     currentIssue.value = head
                                                 }
                                             }
@@ -948,7 +951,7 @@ fun FilterDropdown(currentIssue: MutableState<IssueHead?>, currentFilter: Mutabl
 }
 
 @Composable
-fun ListBody(openedIssues: MutableState<List<IssueHead>>, currentIssue: MutableState<IssueHead?>, currentFilter: MutableState<Filter?>) {
+fun ListBody(openedIssues: SnapshotStateList<IssueHead>, currentIssue: MutableState<IssueHead?>, currentFilter: MutableState<Filter?>) {
     val repo = Repository.current
     val issues = uiStateFrom(currentFilter.value?.jql) { clb: (Result<SearchResult>) -> Unit ->
         repo.getIssues(currentFilter.value?.jql, clb)
@@ -964,7 +967,7 @@ fun ListBody(openedIssues: MutableState<List<IssueHead>>, currentIssue: MutableS
                             it.data.issues.forEach { iss ->
                                 Box(
                                     modifier = Modifier.clickable {
-                                        openedIssues.value = openedIssues.value.minus(iss).plus(iss)
+                                        if (iss !in openedIssues) openedIssues += iss
                                         currentIssue.value = iss
                                     },
                                     contentAlignment = Alignment.CenterStart
