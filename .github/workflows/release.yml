@@ -75,7 +75,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: distributions/JiraViewer-0.1.0.msi-${{ steps.latest_tag.outputs.tag }}.msi
+          asset_path: distributions/JiraViewer-${{ steps.latest_tag.outputs.tag }}.msi
           asset_name: jiraviewer-${{ steps.latest_tag.outputs.tag }}.msi
           asset_content_type: application/zip
       - name: Upload Jar Asset
