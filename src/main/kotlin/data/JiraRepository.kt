@@ -5,6 +5,8 @@ import com.github.kittinunf.fuel.core.*
 import com.github.kittinunf.fuel.jackson.objectBody
 import com.github.kittinunf.fuel.jackson.responseObject
 import java.io.File
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 sealed class Result<out R> {
     data class Success<out T>(val data: T) : Result<T>()
@@ -269,8 +271,9 @@ class JiraRepository(private val baseUrl: String, private val loginUrl: String, 
     }
 
     private fun withLogin(action: () -> Unit) {
+        val encodedPw = URLEncoder.encode(password, StandardCharsets.UTF_8)
         Fuel.post(loginUrl)
-            .body("username=$user&password=$password&login-form-type=pwd")
+            .body("username=$user&password=$encodedPw&login-form-type=pwd")
             .response { _, response, _ ->
                 cookies = response.headers[Headers.SET_COOKIE].toList()
                 action.invoke()
