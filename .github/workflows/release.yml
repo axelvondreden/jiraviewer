@@ -2,8 +2,8 @@ name: Release
 
 on:
   push:
-    branches: 
-    - 'master'
+    branches:
+      - 'master'
 
 jobs:
   build:
@@ -18,76 +18,95 @@ jobs:
           distribution: 'corretto'
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
-      - name: Gradle Build
-        uses: gradle/gradle-build-action@v2
-        with:
-          gradle-version: wrapper
-          arguments: build
+      - name: Build with Gradle
+        run: ./gradlew build
 
   release:
     needs:
+      - debian_build
       - windows_build
-      - linux_build
+      - jar_build
     name: Release
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2.4.2
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1.1.4
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ github.ref }}
-        release_name: ${{ github.ref }}
-        draft: false
-        prerelease: true
-    - name: Download Debian Artifact
-      uses: actions/download-artifact@v2
-      with:
-        name: debian-distribution
-        path: distributions
-    - name: Download Windows Artifact
-      uses: actions/download-artifact@v2
-      with:
-        name: windows-distribution
-        path: distributions
-    - name: Download Jar Artifact
-      uses: actions/download-artifact@v2
-      with:
-        name: jar-distribution
-        path: distributions
-    - name: Latest Tag
-      id: latest_tag
-      uses: "WyriHaximus/github-action-get-previous-tag@master"
-    - name: Upload Debian Asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: distributions/jiraviewer-${{ steps.latest_tag.outputs.tag }}.deb
-        asset_name: jiraviewer-${{ steps.latest_tag.outputs.tag }}.deb
-        asset_content_type: application/zip
-    - name: Upload Windows Asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: distributions/jiraviewer-${{ steps.latest_tag.outputs.tag }}.msi
-        asset_name: jiraviewer-${{ steps.latest_tag.outputs.tag }}.msi
-        asset_content_type: application/zip
-    - name: Upload Jar Asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: distributions/jiraviewer-${{ steps.latest_tag.outputs.tag }}.jar
-        asset_name: jiraviewer-${{ steps.latest_tag.outputs.tag }}.jar
-        asset_content_type: application/zip
-  
+      - uses: actions/checkout@v2.4.2
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1.1.4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: ${{ github.ref }}
+          draft: false
+          prerelease: true
+      - name: Download Debian Artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: debian-distribution
+          path: distributions
+      - name: Download Windows Artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: windows-distribution
+          path: distributions
+      - name: Download Jar Artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: jar-distribution
+          path: distributions
+      - name: Latest Tag
+        id: latest_tag
+        uses: "WyriHaximus/github-action-get-previous-tag@master"
+      - name: Upload Debian Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: distributions/jiraviewer-${{ steps.latest_tag.outputs.tag }}.deb
+          asset_name: jiraviewer-${{ steps.latest_tag.outputs.tag }}.deb
+          asset_content_type: application/zip
+      - name: Upload Windows Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: distributions/jiraviewer-${{ steps.latest_tag.outputs.tag }}.msi
+          asset_name: jiraviewer-${{ steps.latest_tag.outputs.tag }}.msi
+          asset_content_type: application/zip
+      - name: Upload Jar Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: distributions/jiraviewer-${{ steps.latest_tag.outputs.tag }}.jar
+          asset_name: jiraviewer-${{ steps.latest_tag.outputs.tag }}.jar
+          asset_content_type: application/zip
+
+  debian_build:
+    needs: build
+    name: Debian Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2.4.2
+      - name: Setup Java JDK
+        uses: actions/setup-java@v3.4.1
+        with:
+          java-version: 17
+          distribution: 'corretto'
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+      - name: Create Debian Distribution
+        run: ./gradlew packageDeb
+      - name: Upload Debian Artifact
+        uses: actions/upload-artifact@v3.1.0
+        with:
+          name: debian-distribution
+          path: ./build/compose/binaries/main/deb/*.deb
+
   windows_build:
     needs: build
     name: Windows Build
@@ -102,41 +121,31 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
       - name: Create Windows Distribution
-        uses: gradle/gradle-build-action@v2
-        with:
-          gradle-version: wrapper
-          arguments: packageMsi
+        run: ./gradlew packageMsi
       - name: Upload Windows Artifact
         uses: actions/upload-artifact@v3.1.0
         with:
           name: windows-distribution
           path: build\compose\binaries\main\msi\*.msi
 
-  linux_build:
+  jar_build:
     needs: build
-    name: Linux Build
+    name: jar Build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2.4.2
-      - name: Setup Java JDK
+      - name: Set up JDK
         uses: actions/setup-java@v3.4.1
         with:
           java-version: 17
           distribution: 'corretto'
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
-      - name: Create Debian Distribution
-        uses: gradle/gradle-build-action@v2
-        with:
-          gradle-version: wrapper
-          arguments: packageDeb
       - name: Create Jar Distribution
-        uses: gradle/gradle-build-action@v2
-        with:
-          gradle-version: wrapper
-          arguments: packageUberJarForCurrentOS
+        run: ./gradlew packageUberJarForCurrentOS
       - name: Upload Jar Artifact
         uses: actions/upload-artifact@v3.1.0
         with:
           name: jar-distribution
           path: build\compose\jars\*.jar
+
