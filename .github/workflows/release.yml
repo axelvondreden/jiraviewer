@@ -16,6 +16,8 @@ jobs:
         with:
           java-version: 17
           distribution: 'corretto'
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
       - name: Gradle Build
         uses: gradle/gradle-build-action@v2
         with:
@@ -96,6 +98,8 @@ jobs:
         with:
           java-version: 17
           distribution: 'corretto'
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
       - name: Create Windows Distribution
         uses: gradle/gradle-build-action@v2
         with:
@@ -117,6 +121,8 @@ jobs:
         with:
           java-version: 17
           distribution: 'corretto'
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
       - name: Create Debian Distribution
         uses: gradle/gradle-build-action@v2
         with:
