@@ -30,14 +30,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2.4.2
+      - name: Latest Tag
+        id: latest_tag
+        uses: "WyriHaximus/github-action-get-previous-tag@master"
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1.1.4
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ github.ref }}
-          release_name: ${{ github.ref }}
+          tag_name: ${{ steps.latest_tag.outputs.tag }}
+          release_name: ${{ steps.latest_tag.outputs.tag }}
           draft: false
           prerelease: true
       - name: Download Debian Artifact
@@ -55,9 +58,6 @@ jobs:
         with:
           name: jar-distribution
           path: distributions
-      - name: Latest Tag
-        id: latest_tag
-        uses: "WyriHaximus/github-action-get-previous-tag@master"
       - name: Upload Debian Asset
         uses: actions/upload-release-asset@v1
         env:
