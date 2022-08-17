@@ -1,1 +1,0 @@
-To run: `JiraViewer.exe "https://<host>/jira/rest/api/latest" "https://<host>/pkmslogin.form" "user" "password"`
