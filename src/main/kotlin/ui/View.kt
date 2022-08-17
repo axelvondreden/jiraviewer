@@ -32,15 +32,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.DpSize
-import androidx.compose.ui.unit.TextUnit
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.*
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.rememberDialogState
 import data.*
 import org.jetbrains.skia.Image.Companion.makeFromEncoded
 import org.ocpsoft.prettytime.PrettyTime
+import ui.splitter.SplitterState
+import ui.splitter.VerticalSplittable
 import java.awt.Desktop
 import java.io.File
 import java.net.URI
@@ -93,11 +92,16 @@ fun TwoColLayout(
     filterState: MutableState<Filter?>,
     commentState: MutableState<CommentState>
 ) {
-    Row(Modifier.fillMaxSize()) {
-        Box(modifier = Modifier.fillMaxWidth(0.25f), contentAlignment = Alignment.Center) {
-            IssuesList(openedIssues, issueState, filterState)
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val splitter = SplitterState()
+        var width by mutableStateOf(maxWidth * 0.25F)
+        val range = 150.dp..(maxWidth * 0.5F)
+        VerticalSplittable(Modifier.fillMaxSize(), splitter, onResize = { width = (width + it).coerceIn(range) }) {
+            Box(modifier = Modifier.width(width), contentAlignment = Alignment.Center) {
+                IssuesList(openedIssues, issueState, filterState)
+            }
+            OpenedIssues(openedIssues, issueState, commentState, false)
         }
-        OpenedIssues(openedIssues, issueState, commentState, false)
     }
 }
 
