@@ -66,7 +66,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: distributions/jiraviewer-${{ steps.latest_tag.outputs.tag }}.deb
+          asset_path: distributions/jiraviewer_${{ steps.latest_tag.outputs.tag }}-1_amd64.deb
           asset_name: jiraviewer-${{ steps.latest_tag.outputs.tag }}.deb
           asset_content_type: application/zip
       - name: Upload Windows Asset
@@ -84,7 +84,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: distributions/jiraviewer-${{ steps.latest_tag.outputs.tag }}.jar
+          asset_path: distributions/jiraviewer-linux-x64-${{ steps.latest_tag.outputs.tag }}.jar
           asset_name: jiraviewer-${{ steps.latest_tag.outputs.tag }}.jar
           asset_content_type: application/zip
 
