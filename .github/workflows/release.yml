@@ -147,5 +147,5 @@ jobs:
         uses: actions/upload-artifact@v3.1.0
         with:
           name: jar-distribution
-          path: build\compose\jars\*.jar
+          path: -/build/compose/jars/*.jar
 
