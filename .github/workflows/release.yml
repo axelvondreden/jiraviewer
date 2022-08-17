@@ -4,8 +4,6 @@ on:
   push:
     branches: 
     - 'master'
-    tags-ignore: 
-    - '!+.+.+'
 
 jobs:
   build:
@@ -17,6 +15,7 @@ jobs:
         uses: actions/setup-java@v3.4.1
         with:
           java-version: 17
+          distribution: 'corretto'
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
       - name: Build with Gradle
@@ -82,6 +81,7 @@ jobs:
         uses: actions/setup-java@v3.4.1
         with:
           java-version: 17
+          distribution: 'corretto'
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
       - name: Create Debian Distribution
@@ -102,6 +102,7 @@ jobs:
         uses: actions/setup-java@v3.4.1
         with:
           java-version: 17
+          distribution: 'corretto'
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
       - name: Create Windows Distribution
