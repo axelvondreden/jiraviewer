@@ -39,7 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.rememberDialogState
-import data.*
+import data.api.*
 import org.jetbrains.skia.Image.Companion.makeFromEncoded
 import org.ocpsoft.prettytime.PrettyTime
 import ui.splitter.SplitterState
@@ -171,7 +171,7 @@ fun CurrentIssueContent(head: IssueHead?, commentState: MutableState<CommentStat
         val repo = Repository.current
         when (val issue = uiStateFrom(head.key) { clb: (Result<Issue>) -> Unit -> repo.getIssue(head.key, clb) }.value) {
             is UiState.Loading -> CurrentIssueStatus { Loader() }
-            is UiState.Error -> CurrentIssueStatus { Error("data.Issue loading error") }
+            is UiState.Error -> CurrentIssueStatus { Error("data.api.Issue loading error") }
             is UiState.Success -> CurrentIssueActiveContainer(issue.data, commentState)
         }
     }

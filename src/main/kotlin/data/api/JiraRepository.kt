@@ -1,4 +1,4 @@
-package data
+package data.api
 
 import com.github.kittinunf.fuel.Fuel
 import com.github.kittinunf.fuel.core.*
