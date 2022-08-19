@@ -1,6 +1,7 @@
 package ui
 
 import ErrorText
+import FullsizeInfo
 import Loader
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -17,32 +18,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.pointer.pointerMoveFilter
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.rememberDialogState
 import data.api.*
-import org.jetbrains.skia.Image.Companion.makeFromEncoded
 import org.ocpsoft.prettytime.PrettyTime
 import ui.splitter.SplitterState
 import ui.splitter.VerticalSplittable
 import java.awt.Desktop
-import java.io.File
 
 val Repository = compositionLocalOf<JiraRepository> { error("Undefined repository") }
 
@@ -67,7 +60,7 @@ fun IssuesView() {
 @ExperimentalComposeUiApi
 @ExperimentalMaterialApi
 @Composable
-fun TwoColLayout(openedIssues: SnapshotStateList<IssueHead>, issueState: MutableState<IssueHead?>) {
+private fun TwoColLayout(openedIssues: SnapshotStateList<IssueHead>, issueState: MutableState<IssueHead?>) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val splitter = SplitterState()
         var width by mutableStateOf(maxWidth * 0.25F)
@@ -81,10 +74,10 @@ fun TwoColLayout(openedIssues: SnapshotStateList<IssueHead>, issueState: Mutable
     }
 }
 
-@ExperimentalComposeUiApi
 @ExperimentalMaterialApi
+@ExperimentalComposeUiApi
 @Composable
-fun OpenedIssues(openedIssues: SnapshotStateList<IssueHead>, issueState: MutableState<IssueHead?>) {
+private fun OpenedIssues(openedIssues: SnapshotStateList<IssueHead>, issueState: MutableState<IssueHead?>) {
     Column {
         if (openedIssues.isNotEmpty()) {
             val index = openedIssues.indexOf(issueState.value).coerceAtLeast(0)
@@ -126,45 +119,32 @@ fun OpenedIssues(openedIssues: SnapshotStateList<IssueHead>, issueState: Mutable
     }
 }
 
-@ExperimentalComposeUiApi
 @ExperimentalMaterialApi
+@ExperimentalComposeUiApi
 @Composable
-fun CurrentIssueContent(head: IssueHead?) {
-    if (head == null) CurrentIssueStatus { Text("Select issue") }
+private fun CurrentIssueContent(head: IssueHead?) {
+    if (head == null) FullsizeInfo { Text("Select issue") }
     else {
         val repo = Repository.current
         when (val issue = uiStateFrom(head.key) { clb: (Result<Issue>) -> Unit -> repo.getIssue(head.key, clb) }.value) {
-            is UiState.Loading -> CurrentIssueStatus { Loader() }
-            is UiState.Error -> CurrentIssueStatus { ErrorText("data.api.Issue loading error") }
-            is UiState.Success -> CurrentIssueActiveContainer(issue.data)
+            is UiState.Loading -> FullsizeInfo { Loader() }
+            is UiState.Error -> FullsizeInfo { ErrorText("data.api.Issue loading error") }
+            is UiState.Success -> {
+                val issueState = remember { mutableStateOf(issue.data) }
+                when (val editRes = uiStateFrom(issueState.value.key) { clb: (Result<Editmeta>) -> Unit -> repo.getEditmeta(issueState.value.key, clb) }.value) {
+                    is UiState.Error -> FullsizeInfo { ErrorText(editRes.exception) }
+                    is UiState.Loading -> FullsizeInfo { Loader() }
+                    is UiState.Success -> CurrentIssueActive(issueState, editRes.data.fields)
+                }
+            }
         }
     }
 }
 
-@Composable
-fun CurrentIssueStatus(content: @Composable () -> Unit) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        content()
-    }
-}
-
-@ExperimentalComposeUiApi
 @ExperimentalMaterialApi
-@Composable
-fun CurrentIssueActiveContainer(issue: Issue) {
-    val issueState = remember { mutableStateOf(issue) }
-    val repo = Repository.current
-    when (val editRes = uiStateFrom(issueState.value.key) { clb: (Result<Editmeta>) -> Unit -> repo.getEditmeta(issueState.value.key, clb) }.value) {
-        is UiState.Error -> CurrentIssueStatus { ErrorText(editRes.exception) }
-        is UiState.Loading -> CurrentIssueStatus { Loader() }
-        is UiState.Success -> CurrentIssueActive(issueState, editRes.data.fields)
-    }
-}
-
 @ExperimentalComposeUiApi
-@ExperimentalMaterialApi
 @Composable
-fun CurrentIssueActive(issueState: MutableState<Issue>, editmeta: Map<String, EditMetaField>) {
+private fun CurrentIssueActive(issueState: MutableState<Issue>, editmeta: Map<String, EditMetaField>) {
     Box(Modifier.fillMaxSize()) {
         Column(modifier = Modifier.padding(8.dp).fillMaxSize()) {
             IssueHeaderInfo(issueState)
@@ -185,15 +165,15 @@ fun CurrentIssueActive(issueState: MutableState<Issue>, editmeta: Map<String, Ed
                     }
                 }
             }
-            issueState.value.fields.freitext?.let {
+            issueState.value.fields.freetext?.let {
                 Spacer(Modifier.height(6.dp))
-                IssueField("Freitext") {
+                IssueField("Info-Text") {
                     ParsedText(it, Modifier.border(1.dp, Color.LightGray).fillMaxWidth().padding(3.dp))
                 }
             }
-            issueState.value.fields.fehlermeldung?.let {
+            issueState.value.fields.errorMessage?.let {
                 Spacer(Modifier.height(6.dp))
-                IssueField("Fehlermeldung") {
+                IssueField("Error message") {
                     ParsedText(it, Modifier.border(1.dp, Color.LightGray).fillMaxWidth().padding(3.dp))
                 }
             }
@@ -211,7 +191,7 @@ fun CurrentIssueActive(issueState: MutableState<Issue>, editmeta: Map<String, Ed
             }
             issueState.value.fields.description?.let {
                 Spacer(Modifier.height(6.dp))
-                IssueField("Beschreibung") {
+                IssueField("Description") {
                     ParsedText(it, Modifier.border(1.dp, Color.LightGray).fillMaxWidth().padding(3.dp), 16.sp)
                 }
             }
@@ -221,10 +201,10 @@ fun CurrentIssueActive(issueState: MutableState<Issue>, editmeta: Map<String, Ed
     }
 }
 
-@ExperimentalMaterialApi
 @ExperimentalComposeUiApi
+@ExperimentalMaterialApi
 @Composable
-fun AttachmentCard(attachment: Attachment, down: () -> Unit) {
+private fun AttachmentCard(attachment: Attachment, down: () -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     Card(
         modifier = Modifier.pointerMoveFilter(onEnter = { expanded = true; false }, onExit = { expanded = false; false }),
@@ -255,15 +235,15 @@ fun AttachmentCard(attachment: Attachment, down: () -> Unit) {
 }
 
 @Composable
-fun IssueHeaderInfo(issueState: MutableState<Issue>) {
+private fun IssueHeaderInfo(issueState: MutableState<Issue>) {
     FlowRow(horizontalGap = 6.dp, verticalGap = 3.dp) {
         Text(AnnotatedString.Builder().apply {
             pushStyle(SpanStyle(fontSize = 13.sp))
-            append("Erstellt: ")
+            append("Created: ")
             pushStyle(SpanStyle(fontStyle = FontStyle.Italic))
             append(timePrinter.format(issueState.value.fields.created))
             issueState.value.fields.reporter?.displayName?.let {
-                append(" von ")
+                append(" by ")
                 pushStyle(SpanStyle(fontWeight = FontWeight.Bold))
                 append(it)
                 pop()
@@ -272,7 +252,7 @@ fun IssueHeaderInfo(issueState: MutableState<Issue>) {
         issueState.value.fields.updated?.let {
             Text(AnnotatedString.Builder().apply {
                 pushStyle(SpanStyle(fontSize = 13.sp))
-                append("| Geändert: ")
+                append("| Changed: ")
                 pushStyle(SpanStyle(fontStyle = FontStyle.Italic))
                 append(timePrinter.format(it))
             }.toAnnotatedString())
@@ -288,7 +268,7 @@ fun IssueHeaderInfo(issueState: MutableState<Issue>) {
         issueState.value.fields.reproducable?.value?.let {
             Text(AnnotatedString.Builder().apply {
                 pushStyle(SpanStyle(fontSize = 13.sp))
-                append("| Nachstellbarkeit: ")
+                append("| to reproduce: ")
                 pushStyle(SpanStyle(fontStyle = FontStyle.Italic))
                 append(it)
             }.toAnnotatedString())
@@ -298,7 +278,7 @@ fun IssueHeaderInfo(issueState: MutableState<Issue>) {
 
 @ExperimentalComposeUiApi
 @Composable
-fun IssueFields(issueState: MutableState<Issue>, editmeta: Map<String, EditMetaField>) {
+private fun IssueFields(issueState: MutableState<Issue>, editmeta: Map<String, EditMetaField>) {
     FlowRow(horizontalGap = 3.dp, verticalGap = 3.dp) {
         Column(Modifier.width(220.dp)) {
             AssigneeField(issueState)
@@ -324,7 +304,7 @@ fun IssueFields(issueState: MutableState<Issue>, editmeta: Map<String, EditMetaF
 }
 
 @Composable
-fun AssigneeField(issue: MutableState<Issue>) {
+private fun AssigneeField(issue: MutableState<Issue>) {
     Label("Assignee") {
         Text(
             text = issue.value.fields.assignee?.displayName ?: "",
@@ -337,8 +317,8 @@ fun AssigneeField(issue: MutableState<Issue>) {
 }
 
 @Composable
-fun PriorityField(issue: MutableState<Issue>, editmeta: EditMetaField?) {
-    Label("Priorität") {
+private fun PriorityField(issue: MutableState<Issue>, editmeta: EditMetaField?) {
+    Label("Priority") {
         Row {
             var edit by remember { mutableStateOf(false) }
             Box {
@@ -376,7 +356,7 @@ fun PriorityField(issue: MutableState<Issue>, editmeta: EditMetaField?) {
 }
 
 @Composable
-fun StatusField(issue: MutableState<Issue>) {
+private fun StatusField(issue: MutableState<Issue>) {
     Label("Status") {
         Text(
             text = issue.value.fields.status?.name ?: "",
@@ -389,7 +369,7 @@ fun StatusField(issue: MutableState<Issue>) {
 }
 
 @Composable
-fun SystemField(issue: MutableState<Issue>, editmeta: EditMetaField?) {
+private fun SystemField(issue: MutableState<Issue>, editmeta: EditMetaField?) {
     Label("System") {
         Row {
             var edit by remember { mutableStateOf(false) }
@@ -443,8 +423,8 @@ private fun updateIssue(repo: JiraRepository, issue: MutableState<Issue>, update
 }
 
 @Composable
-fun TypeField(issue: MutableState<Issue>, editmeta: EditMetaField?) {
-    Label("Art") {
+private fun TypeField(issue: MutableState<Issue>, editmeta: EditMetaField?) {
+    Label("Type") {
         Row {
             var edit by remember { mutableStateOf(false) }
             Box {
@@ -481,8 +461,8 @@ fun TypeField(issue: MutableState<Issue>, editmeta: EditMetaField?) {
 }
 
 @Composable
-fun CategoryField(issue: MutableState<Issue>, editmeta: EditMetaField?) {
-    Label("Kategorie") {
+private fun CategoryField(issue: MutableState<Issue>, editmeta: EditMetaField?) {
+    Label("Category") {
         Row {
             var edit by remember { mutableStateOf(false) }
             Box {
@@ -523,8 +503,8 @@ fun CategoryField(issue: MutableState<Issue>, editmeta: EditMetaField?) {
 }
 
 @Composable
-fun AreaField(issue: MutableState<Issue>, editmeta: EditMetaField?) {
-    Label("Bereich") {
+private fun AreaField(issue: MutableState<Issue>, editmeta: EditMetaField?) {
+    Label("Area") {
         Row {
             var edit by remember { mutableStateOf(false) }
             Box {
@@ -561,7 +541,7 @@ fun AreaField(issue: MutableState<Issue>, editmeta: EditMetaField?) {
 }
 
 @Composable
-fun WorkflowField(issue: MutableState<Issue>) {
+private fun WorkflowField(issue: MutableState<Issue>) {
     val repo = Repository.current
     val transitions =
         uiStateFrom(issue.value) { clb: (Result<Transitions>) -> Unit -> repo.getTransitions(issue.value.key, clb) }.value
@@ -639,7 +619,7 @@ fun WorkflowField(issue: MutableState<Issue>) {
 
 @ExperimentalComposeUiApi
 @Composable
-fun RequestedParticipantsField(issue: MutableState<Issue>) {
+private fun RequestedParticipantsField(issue: MutableState<Issue>) {
     val names = issue.value.fields.requestedParticipants?.mapNotNull { it?.displayName } ?: emptyList()
     Label("Requested") {
         var expanded by remember { mutableStateOf(false) }
@@ -669,7 +649,7 @@ fun RequestedParticipantsField(issue: MutableState<Issue>) {
 
 @ExperimentalComposeUiApi
 @Composable
-fun WatchersField(issue: MutableState<Issue>) {
+private fun WatchersField(issue: MutableState<Issue>) {
     val repo = Repository.current
     val watchers = uiStateFrom(issue.value.key) { clb: (Result<Watchers>) -> Unit -> repo.getWatchers(issue.value.key, clb) }.value
     if (watchers is UiState.Success) {
@@ -702,7 +682,7 @@ fun WatchersField(issue: MutableState<Issue>) {
 }
 
 @Composable
-fun IssueField(label: String, content: @Composable () -> Unit) {
+private fun IssueField(label: String, content: @Composable () -> Unit) {
     var expanded by remember { mutableStateOf(true) }
     Column(verticalArrangement = Arrangement.Center) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { expanded = !expanded }) {
@@ -719,7 +699,7 @@ fun IssueField(label: String, content: @Composable () -> Unit) {
 
 @ExperimentalComposeUiApi
 @Composable
-fun IssuesList(openedIssues: SnapshotStateList<IssueHead>, currentIssue: MutableState<IssueHead?>) {
+private fun IssuesList(openedIssues: SnapshotStateList<IssueHead>, currentIssue: MutableState<IssueHead?>) {
     val repo = Repository.current
     val currentFilter: MutableState<Filter?> = remember { mutableStateOf(null) }
     Scaffold(
@@ -781,7 +761,7 @@ fun IssuesList(openedIssues: SnapshotStateList<IssueHead>, currentIssue: Mutable
 }
 
 @Composable
-fun FilterDropdown(currentIssue: MutableState<IssueHead?>, currentFilter: MutableState<Filter?>) {
+private fun FilterDropdown(currentIssue: MutableState<IssueHead?>, currentFilter: MutableState<Filter?>) {
     var expanded by remember { mutableStateOf(false) }
     val repo = Repository.current
     val filters = uiStateFrom(currentFilter) { clb: (Result<List<Filter>>) -> Unit -> repo.getFilters(clb) }
@@ -817,7 +797,7 @@ fun FilterDropdown(currentIssue: MutableState<IssueHead?>, currentFilter: Mutabl
 }
 
 @Composable
-fun ListBody(openedIssues: SnapshotStateList<IssueHead>, currentIssue: MutableState<IssueHead?>, currentFilter: MutableState<Filter?>) {
+private fun ListBody(openedIssues: SnapshotStateList<IssueHead>, currentIssue: MutableState<IssueHead?>, currentFilter: MutableState<Filter?>) {
     val repo = Repository.current
     val issues = uiStateFrom(currentFilter.value?.jql) { clb: (Result<SearchResult>) -> Unit ->
         repo.getIssues(currentFilter.value?.jql, clb)
@@ -854,15 +834,15 @@ fun ListBody(openedIssues: SnapshotStateList<IssueHead>, currentIssue: MutableSt
 }
 
 @Composable
-fun ListItem(issueHead: IssueHead) {
+private fun ListItem(issueHead: IssueHead) {
     Card(Modifier.padding(4.dp).fillMaxWidth(), backgroundColor = Color(54, 54, 54)) {
         Column(Modifier.fillMaxSize().padding(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                 Text(text = issueHead.key, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 Spacer(Modifier.width(10.dp))
                 Column {
-                    Text(text = "Erstellt: " + timePrinter.format(issueHead.fields.created), style = issueDateStyle)
-                    Text(text = "Geändert: " + timePrinter.format(issueHead.fields.updated), style = issueDateStyle)
+                    Text(text = "Created: " + timePrinter.format(issueHead.fields.created), style = issueDateStyle)
+                    Text(text = "Changed: " + timePrinter.format(issueHead.fields.updated), style = issueDateStyle)
                 }
             }
             Text(issueHead.fields.summary ?: "")
@@ -880,107 +860,7 @@ fun ListItem(issueHead: IssueHead) {
 }
 
 @Composable
-fun ClickableImage(file: File) {
-    var showDialog by remember { mutableStateOf(false) }
-    val img = makeFromEncoded(file.readBytes()).toComposeImageBitmap()
-    Image(
-        bitmap = img,
-        contentDescription = "",
-        modifier = Modifier.padding(4.dp).width(200.dp).heightIn(max = 200.dp).clickable { showDialog = true },
-        contentScale = ContentScale.Fit,
-        alignment = Alignment.TopCenter
-    )
-    if (showDialog) {
-        Dialog(
-            onCloseRequest = { showDialog = false },
-            state = rememberDialogState(size = DpSize(img.width.dp, img.height.dp)),
-            undecorated = false,
-            resizable = false
-        ) {
-            Image(
-                bitmap = img,
-                contentDescription = "",
-                modifier = Modifier.padding(4.dp).fillMaxSize(),
-                contentScale = ContentScale.Fit,
-                alignment = Alignment.TopCenter
-            )
-        }
-    }
-}
-
-@ExperimentalComposeUiApi
-@Composable
-fun HistoryItem(history: History) {
-    Card(Modifier.padding(4.dp).fillMaxWidth(), backgroundColor = Color(40, 40, 40), border = BorderStroke(1.dp, Color.Gray)) {
-        Column(Modifier.fillMaxWidth().padding(2.dp)) {
-            Text(
-                text = AnnotatedString.Builder().apply {
-                    append("Änderung")
-                    history.author.displayName?.let {
-                        append(" von ")
-                        pushStyle(SpanStyle(fontWeight = FontWeight.Bold))
-                        append(it)
-                        pop()
-                    }
-                    append(" ")
-                    append(timePrinter.format(history.created))
-                }.toAnnotatedString(),
-                color = Color.Gray
-            )
-            Divider(color = Color.Gray, thickness = 1.dp)
-            history.items.forEach {
-                Row(Modifier.fillMaxWidth()) {
-                    var fromHover by remember { mutableStateOf(false) }
-                    var toHover by remember { mutableStateOf(false) }
-                    Text(
-                        text = it.field,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.width(200.dp)
-                    )
-                    Text(
-                        text = it.fromString ?: "",
-                        fontFamily = FontFamily.Monospace,
-                        textAlign = TextAlign.End,
-                        maxLines = if (fromHover) Int.MAX_VALUE else 1,
-                        overflow = if (fromHover) TextOverflow.Clip else TextOverflow.Ellipsis,
-                        modifier = Modifier.fillMaxWidth(0.3F).pointerMoveFilter(
-                            onEnter = {
-                                fromHover = true
-                                false
-                            },
-                            onExit = {
-                                fromHover = false
-                                false
-                            }
-                        )
-                    )
-                    Text("  ->  ")
-                    Text(
-                        text = it.toString ?: "",
-                        fontFamily = FontFamily.Monospace,
-                        maxLines = if (toHover) Int.MAX_VALUE else 1,
-                        overflow = if (toHover) TextOverflow.Clip else TextOverflow.Ellipsis,
-                        modifier = Modifier.fillMaxWidth().pointerMoveFilter(
-                            onEnter = {
-                                toHover = true
-                                false
-                            },
-                            onExit = {
-                                toHover = false
-                                false
-                            }
-                        )
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun Label(label: String, content: @Composable RowScope.() -> Unit) {
+private fun Label(label: String, content: @Composable RowScope.() -> Unit) {
     Row(Modifier.fillMaxWidth().padding(3.dp).border(1.dp, Color.Gray), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(
             "$label:",

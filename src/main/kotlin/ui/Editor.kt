@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.sp
 import data.api.Issue
 import data.api.Result
 
+
 @ExperimentalComposeUiApi
 @Composable
 fun CommentEditor(issue: MutableState<Issue>) {
@@ -25,7 +26,7 @@ fun CommentEditor(issue: MutableState<Issue>) {
             val open = remember { mutableStateOf(false) }
             if (!open.value) {
                 Button(onClick = { open.value = true }, modifier = Modifier.height(22.dp), contentPadding = PaddingValues(2.dp)) {
-                    Text("Kommentieren", fontSize = 13.sp)
+                    Text("Add Comment", fontSize = 13.sp)
                 }
             } else {
                 CommentEditorActivated(issue, open)
@@ -36,7 +37,7 @@ fun CommentEditor(issue: MutableState<Issue>) {
 
 @ExperimentalComposeUiApi
 @Composable
-fun CommentEditorActivated(issue: MutableState<Issue>, open: MutableState<Boolean>) {
+private fun CommentEditorActivated(issue: MutableState<Issue>, open: MutableState<Boolean>) {
     val textState = remember { mutableStateOf(TextFieldValue()) }
     CommentEditorFunctionRow(textState)
     TextField(
@@ -48,7 +49,7 @@ fun CommentEditorActivated(issue: MutableState<Issue>, open: MutableState<Boolea
 }
 
 @ExperimentalComposeUiApi
-fun shortcuts(event: KeyEvent, textState: MutableState<TextFieldValue>): Boolean {
+private fun shortcuts(event: KeyEvent, textState: MutableState<TextFieldValue>): Boolean {
     if (event.type != KeyEventType.KeyUp) return false
     if (!event.isCtrlPressed || event.isAltPressed || event.isShiftPressed || event.isMetaPressed) return false
     when (event.key) {
@@ -60,7 +61,7 @@ fun shortcuts(event: KeyEvent, textState: MutableState<TextFieldValue>): Boolean
 }
 
 @Composable
-fun CommentEditorFunctionRow(textState: MutableState<TextFieldValue>) {
+private fun CommentEditorFunctionRow(textState: MutableState<TextFieldValue>) {
     Row(Modifier.fillMaxWidth()) {
         IconButton(onClick = { textState.updateText("*") }, modifier = Modifier.size(22.dp)) {
             Icon(Icons.Filled.FormatBold, "Bold")

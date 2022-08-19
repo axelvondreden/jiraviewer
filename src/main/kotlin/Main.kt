@@ -41,7 +41,7 @@ fun main() = application {
                     val repo = JiraRepository(settings.restUrl, settings.loginFormUrl, settings.username, settings.password)
                     when (val result = uiStateFrom { clb: (data.api.Result<Myself>) -> Unit -> repo.myself(clb) }.value) {
                         is UiState.Error -> errorText.value = result.exception
-                        is UiState.Loading -> FullPageLoader()
+                        is UiState.Loading -> Scaffold { FullsizeInfo { Loader() } }
                         is UiState.Success -> {
                             CompositionLocalProvider(Repository provides repo) {
                                 IssuesView()
@@ -69,10 +69,8 @@ fun ErrorText(err: String) {
 }
 
 @Composable
-fun FullPageLoader() {
-    Scaffold {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize().padding(20.dp)) {
-            CircularProgressIndicator()
-        }
+fun FullsizeInfo(content: @Composable () -> Unit) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        content()
     }
 }
