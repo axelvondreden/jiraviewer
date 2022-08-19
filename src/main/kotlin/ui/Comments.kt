@@ -29,6 +29,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.rememberDialogState
 import data.api.*
 import data.local.Settings
+import data.local.Settings.Companion.settings
 import java.io.File
 
 private val fieldTitleStyle = TextStyle(color = Color.LightGray, fontStyle = FontStyle.Italic, fontSize = 14.sp)
@@ -37,57 +38,55 @@ private val fieldTitleStyle = TextStyle(color = Color.LightGray, fontStyle = Fon
 @Composable
 fun CommentsList(issue: MutableState<Issue>) {
     val repo = Repository.current
-    Settings.withSettings { settings ->
-        when (val comments = uiStateFrom(issue.value) { clb: (Result<Comments>) -> Unit -> repo.getComments(issue.value.key, clb) }.value) {
-            is UiState.Error -> ErrorText(comments.exception)
-            is UiState.Loading -> Loader()
-            is UiState.Success -> {
-                val cList = comments.data.comments.map { DatedIssueItem(comment = it) }
-                val hList = issue.value.changelog?.histories?.map { DatedIssueItem(history = it) } ?: emptyList()
-                val items = cList.plus(hList)
-                Scaffold(
-                    modifier = Modifier.fillMaxSize(),
-                    topBar = {
-                        TopAppBar(
-                            modifier = Modifier.height(24.dp),
-                            title = { CommentListHeader(settings, items) },
-                        )
-                    },
-                    content = {
-                        Box(Modifier.fillMaxSize()) {
-                            val scroll = rememberScrollState()
-                            Box(Modifier.fillMaxSize().padding(end = 6.dp).verticalScroll(scroll)) {
-                                Column {
-                                    if (!settings.commentAscending) {
-                                        CommentEditor(issue)
-                                    }
-                                    val sorted = if (settings.commentAscending) items.sortedBy { it.created } else items.sortedByDescending { it.created }
-                                    sorted.forEach {
-                                        if (it.isComment && settings.commentView != Settings.CommentViewFilter.HISTORY) {
-                                            CommentItem(it.comment!!, issue.value.fields.attachment)
-                                        } else if (it.isHistory && settings.commentView != Settings.CommentViewFilter.COMMENTS) {
-                                            HistoryItem(it.history!!)
-                                        }
-                                    }
-                                    if (settings.commentAscending) {
-                                        CommentEditor(issue)
+    when (val comments = uiStateFrom(issue.value) { clb: (Result<Comments>) -> Unit -> repo.getComments(issue.value.key, clb) }.value) {
+        is UiState.Error -> ErrorText(comments.exception)
+        is UiState.Loading -> Loader()
+        is UiState.Success -> {
+            val cList = comments.data.comments.map { DatedIssueItem(comment = it) }
+            val hList = issue.value.changelog?.histories?.map { DatedIssueItem(history = it) } ?: emptyList()
+            val items = cList.plus(hList)
+            Scaffold(
+                modifier = Modifier.fillMaxSize(),
+                topBar = {
+                    TopAppBar(
+                        modifier = Modifier.height(24.dp),
+                        title = { CommentListHeader(items) },
+                    )
+                },
+                content = {
+                    Box(Modifier.fillMaxSize()) {
+                        val scroll = rememberScrollState()
+                        Box(Modifier.fillMaxSize().padding(end = 6.dp).verticalScroll(scroll)) {
+                            Column {
+                                if (!settings.commentAscending) {
+                                    CommentEditor(issue)
+                                }
+                                val sorted = if (settings.commentAscending) items.sortedBy { it.created } else items.sortedByDescending { it.created }
+                                sorted.forEach {
+                                    if (it.isComment && settings.commentView != Settings.CommentViewFilter.HISTORY) {
+                                        CommentItem(it.comment!!, issue.value.fields.attachment)
+                                    } else if (it.isHistory && settings.commentView != Settings.CommentViewFilter.COMMENTS) {
+                                        HistoryItem(it.history!!)
                                     }
                                 }
+                                if (settings.commentAscending) {
+                                    CommentEditor(issue)
+                                }
                             }
-                            VerticalScrollbar(
-                                adapter = rememberScrollbarAdapter(scroll),
-                                modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight()
-                            )
                         }
+                        VerticalScrollbar(
+                            adapter = rememberScrollbarAdapter(scroll),
+                            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight()
+                        )
                     }
-                )
-            }
+                }
+            )
         }
     }
 }
 
 @Composable
-private fun CommentListHeader(settings: Settings, items: List<DatedIssueItem>) {
+private fun CommentListHeader(items: List<DatedIssueItem>) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
         Text("${items.count { it.isComment }} Comments", Modifier.padding(top = 4.dp, bottom = 2.dp), style = fieldTitleStyle)
         Spacer(Modifier.width(6.dp))
@@ -99,16 +98,16 @@ private fun CommentListHeader(settings: Settings, items: List<DatedIssueItem>) {
             Text(if (settings.commentAscending) "Oldest first" else "Newest first", fontSize = 12.sp)
         }
         Spacer(Modifier.width(20.dp))
-        CommentFilterButton(settings, Settings.CommentViewFilter.ALL, "All")
+        CommentFilterButton(Settings.CommentViewFilter.ALL, "All")
         Spacer(Modifier.width(4.dp))
-        CommentFilterButton(settings, Settings.CommentViewFilter.COMMENTS, "Comments")
+        CommentFilterButton(Settings.CommentViewFilter.COMMENTS, "Comments")
         Spacer(Modifier.width(4.dp))
-        CommentFilterButton(settings, Settings.CommentViewFilter.HISTORY, "History")
+        CommentFilterButton(Settings.CommentViewFilter.HISTORY, "History")
     }
 }
 
 @Composable
-private fun CommentFilterButton(settings: Settings, filter: Settings.CommentViewFilter, text: String) {
+private fun CommentFilterButton(filter: Settings.CommentViewFilter, text: String) {
     Button(
         onClick = { settings.commentView = filter },
         modifier = Modifier.height(20.dp),

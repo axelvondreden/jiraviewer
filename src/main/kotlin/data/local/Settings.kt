@@ -1,6 +1,5 @@
 package data.local
 
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ObjectNode
@@ -10,26 +9,13 @@ import java.io.File
 import java.io.FileNotFoundException
 import java.io.FileOutputStream
 
-class Settings {
-
-    private var settings: SettingsDTO
-
-    init {
-        settings = try {
-            checkSettings()
-            jacksonObjectMapper().readValue(File(settingsPath).readText(), SettingsDTO::class.java)
-        } catch (e: FileNotFoundException) {
-            jacksonObjectMapper().readValue(File(settingsDefaultPath).readText(), SettingsDTO::class.java)
-        } catch (e: MissingKotlinParameterException) {
-            jacksonObjectMapper().readValue(File(settingsDefaultPath).readText(), SettingsDTO::class.java)
-        }
-    }
+class Settings private constructor() {
 
     var restUrl: String
         get() = _restUrl.value
         set(value) {
             _restUrl.value = value
-            settings.restUrl = value
+            settingsDto.restUrl = value
             save()
         }
 
@@ -37,7 +23,7 @@ class Settings {
         get() = _loginFormUrl.value
         set(value) {
             _loginFormUrl.value = value
-            settings.loginFormUrl = value
+            settingsDto.loginFormUrl = value
             save()
         }
 
@@ -45,7 +31,7 @@ class Settings {
         get() = _username.value
         set(value) {
             _username.value = value
-            settings.username = value
+            settingsDto.username = value
             save()
         }
 
@@ -53,7 +39,7 @@ class Settings {
         get() = _password.value
         set(value) {
             _password.value = value
-            settings.password = value
+            settingsDto.password = value
             save()
         }
 
@@ -61,7 +47,7 @@ class Settings {
         get() = CommentViewFilter.valueOf(_commentView.value)
         set(value) {
             _commentView.value = value.name
-            settings.commentView = value.name
+            settingsDto.commentView = value.name
             save()
         }
 
@@ -69,27 +55,36 @@ class Settings {
         get() = _commentAscending.value
         set(value) {
             _commentAscending.value = value
-            settings.commentAscending = value
+            settingsDto.commentAscending = value
             save()
         }
 
-    private val _restUrl = mutableStateOf(settings.restUrl)
-    private val _loginFormUrl = mutableStateOf(settings.loginFormUrl)
-    private val _username = mutableStateOf(settings.username)
-    private val _password = mutableStateOf(settings.password)
-    private val _commentView = mutableStateOf(settings.commentView)
-    private val _commentAscending = mutableStateOf(settings.commentAscending)
+    private val _restUrl = mutableStateOf(settingsDto.restUrl)
+    private val _loginFormUrl = mutableStateOf(settingsDto.loginFormUrl)
+    private val _username = mutableStateOf(settingsDto.username)
+    private val _password = mutableStateOf(settingsDto.password)
+    private val _commentView = mutableStateOf(settingsDto.commentView)
+    private val _commentAscending = mutableStateOf(settingsDto.commentAscending)
 
     private fun save() {
-        jacksonObjectMapper().writeValue(FileOutputStream(settingsPath), settings)
+        jacksonObjectMapper().writeValue(FileOutputStream(settingsPath), settingsDto)
     }
 
     companion object {
 
-        @Composable
-        fun withSettings(action: @Composable (Settings) -> Unit) {
-            action(Settings())
+        private const val settingsDefaultPath = "config/settings.default.json"
+        const val settingsPath = "config/settings.json"
+
+        private val settingsDto: SettingsDTO = try {
+            checkSettings()
+            jacksonObjectMapper().readValue(File(settingsPath).readText(), SettingsDTO::class.java)
+        } catch (e: FileNotFoundException) {
+            jacksonObjectMapper().readValue(File(settingsDefaultPath).readText(), SettingsDTO::class.java)
+        } catch (e: MissingKotlinParameterException) {
+            jacksonObjectMapper().readValue(File(settingsDefaultPath).readText(), SettingsDTO::class.java)
         }
+
+        val settings = Settings()
 
         private fun checkSettings() {
             val objectMapper = jacksonObjectMapper()
@@ -116,9 +111,6 @@ class Settings {
                 }
             }
         }
-
-        const val settingsDefaultPath = "config/settings.default.json"
-        const val settingsPath = "config/settings.json"
     }
 
     data class SettingsDTO(

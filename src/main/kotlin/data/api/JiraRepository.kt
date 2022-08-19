@@ -4,6 +4,7 @@ import com.github.kittinunf.fuel.Fuel
 import com.github.kittinunf.fuel.core.*
 import com.github.kittinunf.fuel.jackson.objectBody
 import com.github.kittinunf.fuel.jackson.responseObject
+import data.local.Settings.Companion.settings
 import java.io.File
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -13,7 +14,12 @@ sealed class Result<out R> {
     data class Error(val exception: String) : Result<Nothing>()
 }
 
-class JiraRepository(private val baseUrl: String, private val loginUrl: String, private val user: String, private val password: String) {
+class JiraRepository {
+
+    private val baseUrl = settings.restUrl
+    private val loginUrl = settings.loginFormUrl
+    private val user = settings.username
+    private val password = settings.password
 
     private var cookies: List<String> = emptyList()
 

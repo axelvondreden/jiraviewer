@@ -53,14 +53,7 @@ private val labelValueStyle = TextStyle(fontSize = 14.sp)
 @Composable
 fun IssuesView() {
     val openedIssues: SnapshotStateList<IssueHead> = remember { mutableStateListOf() }
-    val currentIssue: MutableState<IssueHead?> = remember { mutableStateOf(null) }
-    TwoColLayout(openedIssues, currentIssue)
-}
-
-@ExperimentalComposeUiApi
-@ExperimentalMaterialApi
-@Composable
-private fun TwoColLayout(openedIssues: SnapshotStateList<IssueHead>, issueState: MutableState<IssueHead?>) {
+    val issueState: MutableState<IssueHead?> = remember { mutableStateOf(null) }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val splitter = SplitterState()
         var width by mutableStateOf(maxWidth * 0.25F)
