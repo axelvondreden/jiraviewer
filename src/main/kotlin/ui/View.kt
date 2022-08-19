@@ -848,8 +848,7 @@ fun CommentsList(issue: MutableState<Issue>, commentState: MutableState<CommentS
                                 if (!commentState.value.ascending) {
                                     CommentEditor(issue)
                                 }
-                                val sorted =
-                                    if (commentState.value.ascending) items.sortedBy { it.created } else items.sortedByDescending { it.created }
+                                val sorted = if (commentState.value.ascending) items.sortedBy { it.created } else items.sortedByDescending { it.created }
                                 sorted.forEach {
                                     if (it.isComment && commentState.value.filter != CommentFilter.HISTORY) {
                                         CommentItem(it.comment!!, issue.value.fields.attachment)
@@ -1212,10 +1211,11 @@ private fun String.parseJiraText(fontSize: TextUnit = 14.sp, repo: JiraRepositor
                         val user = word.getUserFromMention()
                         var translated = ""
                         repo.getUser(user) {
-                            translated = when (it) {
+                            val displayName = when (it) {
                                 is Result.Error -> "[ERROR]"
                                 is Result.Success -> it.data.displayName ?: "[ERROR]"
                             }
+                            translated = word.replace(Regex("\\[~\\S*]"), displayName)
                         }
                         while (translated.isEmpty()) {
                             Thread.sleep(1L)
@@ -1248,6 +1248,6 @@ private fun String.getAttachments() = split("\n").flatMap { it.split(Regex("\\s+
 
 private fun String.isHyperlink() = startsWith("http")
 
-private fun String.isMention() = startsWith("[~") && endsWith("]")//[~kxde4bef6]
+private fun String.isMention() = contains(Regex("\\[~\\S*]"))
 
-private fun String.getUserFromMention() = drop(2).dropLast(1)
+private fun String.getUserFromMention() = dropWhile { it != '~' }.drop(1).takeWhile { it != ']' }
