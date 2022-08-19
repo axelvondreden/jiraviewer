@@ -1238,13 +1238,7 @@ private fun String.parseJiraText(fontSize: TextUnit = 14.sp, repo: JiraRepositor
     }.toAnnotatedString()
 }
 
-private fun String.getAttachments() = split("\n").flatMap { it.split(Regex("\\s+")) }.mapNotNull {
-    if (it.startsWith("!") && it.endsWith("!")) {
-        it.drop(1).dropLast(1).split("|")[0]
-    } else {
-        null
-    }
-}
+private fun String.getAttachments() = Regex("!.+\\..+\\|?.*!").findAll(this).map {it.value }.toList()
 
 private fun String.isHyperlink() = startsWith("http")
 
