@@ -1,4 +1,4 @@
-package data
+package data.api
 
 import com.fasterxml.jackson.annotation.JsonAnySetter
 import com.fasterxml.jackson.annotation.JsonFormat

@@ -1,4 +1,4 @@
-package data
+package data.api
 
 import com.github.kittinunf.fuel.Fuel
 import com.github.kittinunf.fuel.core.*
@@ -23,6 +23,12 @@ class JiraRepository(private val baseUrl: String, private val loginUrl: String, 
         //DEBUG:
         //FuelManager.instance.addRequestInterceptor(LogRequestInterceptor)
         //FuelManager.instance.addResponseInterceptor(LogResponseInterceptor)
+    }
+
+    fun myself(callback: (Result<Myself>) -> Unit) {
+        getWithLogin("$baseUrl/myself", callback) {
+            callback(Result.Success(it))
+        }
     }
 
     fun getIssues(filter: String?, callback: (Result<SearchResult>) -> Unit) {

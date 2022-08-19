@@ -1,5 +1,7 @@
 package ui
 
+import ErrorText
+import Loader
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -39,7 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.rememberDialogState
-import data.*
+import data.api.*
 import org.jetbrains.skia.Image.Companion.makeFromEncoded
 import org.ocpsoft.prettytime.PrettyTime
 import ui.splitter.SplitterState
@@ -71,15 +73,6 @@ private val scrollbarStyle = ScrollbarStyle(
 @ExperimentalMaterialApi
 @Composable
 fun IssuesView() {
-    MaterialTheme(colors = darkColors(primary = Color(120, 120, 120), onPrimary = Color.White)) {
-        Main()
-    }
-}
-
-@ExperimentalComposeUiApi
-@ExperimentalMaterialApi
-@Composable
-fun Main() {
     val openedIssues: SnapshotStateList<IssueHead> = remember { mutableStateListOf() }
     val currentIssue: MutableState<IssueHead?> = remember { mutableStateOf(null) }
     val currentFilter: MutableState<Filter?> = remember { mutableStateOf(null) }
@@ -171,7 +164,7 @@ fun CurrentIssueContent(head: IssueHead?, commentState: MutableState<CommentStat
         val repo = Repository.current
         when (val issue = uiStateFrom(head.key) { clb: (Result<Issue>) -> Unit -> repo.getIssue(head.key, clb) }.value) {
             is UiState.Loading -> CurrentIssueStatus { Loader() }
-            is UiState.Error -> CurrentIssueStatus { Error("data.Issue loading error") }
+            is UiState.Error -> CurrentIssueStatus { ErrorText("data.api.Issue loading error") }
             is UiState.Success -> CurrentIssueActiveContainer(issue.data, commentState)
         }
     }
@@ -191,7 +184,7 @@ fun CurrentIssueActiveContainer(issue: Issue, commentState: MutableState<Comment
     val issueState = remember { mutableStateOf(issue) }
     val repo = Repository.current
     when (val editRes = uiStateFrom(issueState.value.key) { clb: (Result<Editmeta>) -> Unit -> repo.getEditmeta(issueState.value.key, clb) }.value) {
-        is UiState.Error -> CurrentIssueStatus { Error(editRes.exception) }
+        is UiState.Error -> CurrentIssueStatus { ErrorText(editRes.exception) }
         is UiState.Loading -> CurrentIssueStatus { Loader() }
         is UiState.Success -> CurrentIssueActive(issueState, commentState, editRes.data.fields)
     }
@@ -833,7 +826,7 @@ fun IssuesList(openedIssues: SnapshotStateList<IssueHead>, currentIssue: Mutable
 fun CommentsList(issue: MutableState<Issue>, commentState: MutableState<CommentState>) {
     val repo = Repository.current
     when (val comments = uiStateFrom(issue.value) { clb: (Result<Comments>) -> Unit -> repo.getComments(issue.value.key, clb) }.value) {
-        is UiState.Error -> Error(comments.exception)
+        is UiState.Error -> ErrorText(comments.exception)
         is UiState.Loading -> Loader()
         is UiState.Success -> {
             val cList = comments.data.comments.map { DatedIssueItem(comment = it) }
@@ -938,7 +931,7 @@ fun FilterDropdown(currentIssue: MutableState<IssueHead?>, currentFilter: Mutabl
                     }
 
                     is UiState.Loading -> Loader()
-                    is UiState.Error -> Error(state.exception)
+                    is UiState.Error -> ErrorText(state.exception)
                 }
             }
         }
@@ -978,7 +971,7 @@ fun ListBody(openedIssues: SnapshotStateList<IssueHead>, currentIssue: MutableSt
                         }
 
                         is UiState.Loading -> Loader()
-                        is UiState.Error -> Error(it.exception)
+                        is UiState.Error -> ErrorText(it.exception)
                     }
                 }
             }
@@ -1185,20 +1178,6 @@ fun Label(label: String, content: @Composable RowScope.() -> Unit) {
             modifier = Modifier.padding(start = 3.dp)
         )
         content()
-    }
-}
-
-@Composable
-fun Loader() {
-    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth().padding(20.dp)) {
-        CircularProgressIndicator()
-    }
-}
-
-@Composable
-fun Error(err: String) {
-    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth().padding(20.dp)) {
-        Text(text = err, style = TextStyle(color = MaterialTheme.colors.error, fontWeight = FontWeight.Bold))
     }
 }
 

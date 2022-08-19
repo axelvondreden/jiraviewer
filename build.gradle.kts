@@ -17,6 +17,7 @@ dependencies {
     implementation(compose.materialIconsExtended)
 
     implementation("com.fasterxml.jackson.core:jackson-databind:2.13.3")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.13.3")
     implementation("com.github.kittinunf.fuel:fuel:2.3.1")
     implementation("com.github.kittinunf.fuel:fuel-jackson:2.3.1")
     implementation("org.ocpsoft.prettytime:prettytime:5.0.3.Final")
@@ -30,7 +31,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Deb, TargetFormat.Msi)
             packageName = "JiraViewer"
-            packageVersion = "0.1.0"
+            packageVersion = "0.1.1"
         }
     }
 }

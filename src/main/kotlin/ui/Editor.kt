@@ -14,8 +14,8 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import data.Issue
-import data.Result
+import data.api.Issue
+import data.api.Result
 
 @ExperimentalComposeUiApi
 @Composable

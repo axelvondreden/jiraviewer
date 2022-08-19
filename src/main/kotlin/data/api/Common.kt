@@ -1,4 +1,4 @@
-package data
+package data.api
 
 data class DisplayName(val displayName: String?)
 
@@ -11,3 +11,5 @@ data class Filter(
     val name: String,
     val jql: String
 )
+
+data class Myself(val name: String, val displayName: String)
