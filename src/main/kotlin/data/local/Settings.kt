@@ -1,5 +1,6 @@
 package data.local
 
+import androidx.compose.runtime.Composable
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.module.kotlin.MissingKotlinParameterException
@@ -30,22 +31,22 @@ class Settings {
     val username: Flow<String> get() = flowOf(settings.username)
     val password: Flow<String> get() = flowOf(settings.password)
 
-    suspend fun setRestUrl(restUrl: String) {
+    fun setRestUrl(restUrl: String) {
         settings = settings.copy(restUrl = restUrl)
         save()
     }
 
-    suspend fun setLoginFormUrl(loginFormUrl: String) {
+    fun setLoginFormUrl(loginFormUrl: String) {
         settings = settings.copy(loginFormUrl = loginFormUrl)
         save()
     }
 
-    suspend fun setUsername(username: String) {
+    fun setUsername(username: String) {
         settings = settings.copy(username = username)
         save()
     }
 
-    suspend fun setPassword(password: String) {
+    fun setPassword(password: String) {
         settings = settings.copy(password = password)
         save()
     }
@@ -55,6 +56,12 @@ class Settings {
     }
 
     companion object {
+
+        @Composable
+        fun withSettings(action: @Composable (Settings) -> Unit) {
+            action(Settings())
+        }
+
         private fun checkSettings() {
             val objectMapper = jacksonObjectMapper()
             val defaultTree = objectMapper.readTree(File(settingsDefaultPath))
@@ -81,8 +88,8 @@ class Settings {
             }
         }
 
-        const val settingsDefaultPath = "config/options.default.json"
-        const val settingsPath = "config/options.json"
+        const val settingsDefaultPath = "config/settings.default.json"
+        const val settingsPath = "config/settings.json"
     }
 
     data class SettingsDTO(var restUrl: String, var loginFormUrl: String, var username: String, var password: String)

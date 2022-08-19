@@ -11,3 +11,5 @@ data class Filter(
     val name: String,
     val jql: String
 )
+
+data class Myself(val name: String, val displayName: String)

@@ -25,6 +25,12 @@ class JiraRepository(private val baseUrl: String, private val loginUrl: String, 
         //FuelManager.instance.addResponseInterceptor(LogResponseInterceptor)
     }
 
+    fun myself(callback: (Result<Myself>) -> Unit) {
+        getWithLogin("$baseUrl/myself", callback) {
+            callback(Result.Success(it))
+        }
+    }
+
     fun getIssues(filter: String?, callback: (Result<SearchResult>) -> Unit) {
         if (filter.isNullOrBlank()) {
             callback(Result.Error("Missing Filter"))
