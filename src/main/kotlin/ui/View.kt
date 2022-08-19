@@ -4,8 +4,6 @@ import ErrorText
 import Loader
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
@@ -19,7 +17,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.key
@@ -34,9 +31,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.DpSize
-import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -48,25 +43,16 @@ import ui.splitter.SplitterState
 import ui.splitter.VerticalSplittable
 import java.awt.Desktop
 import java.io.File
-import java.net.URI
 
 val Repository = compositionLocalOf<JiraRepository> { error("Undefined repository") }
 
-private val timePrinter = PrettyTime()
+val timePrinter = PrettyTime()
 
 private val issueDateStyle = TextStyle(color = Color.Gray, fontStyle = FontStyle.Italic, fontSize = 12.sp)
 private val attachmentTitleStyle = TextStyle(color = Color.LightGray, fontSize = 14.sp)
 private val fieldTitleStyle = TextStyle(color = Color.LightGray, fontStyle = FontStyle.Italic, fontSize = 14.sp)
 private val labelTitleStyle = TextStyle(fontWeight = FontWeight.Bold, fontSize = 14.sp)
 private val labelValueStyle = TextStyle(fontSize = 14.sp)
-private val scrollbarStyle = ScrollbarStyle(
-    minimalHeight = 16.dp,
-    thickness = 8.dp,
-    shape = RectangleShape,
-    hoverDurationMillis = 0,
-    unhoverColor = Color.White.copy(alpha = 0.12f),
-    hoverColor = Color.White.copy(alpha = 0.12f)
-)
 
 
 @ExperimentalComposeUiApi
@@ -75,29 +61,22 @@ private val scrollbarStyle = ScrollbarStyle(
 fun IssuesView() {
     val openedIssues: SnapshotStateList<IssueHead> = remember { mutableStateListOf() }
     val currentIssue: MutableState<IssueHead?> = remember { mutableStateOf(null) }
-    val currentFilter: MutableState<Filter?> = remember { mutableStateOf(null) }
-    val commentState = remember { mutableStateOf(CommentState(CommentFilter.COMMENTS, true)) }
-    TwoColLayout(openedIssues, currentIssue, currentFilter, commentState)
+    TwoColLayout(openedIssues, currentIssue)
 }
 
 @ExperimentalComposeUiApi
 @ExperimentalMaterialApi
 @Composable
-fun TwoColLayout(
-    openedIssues: SnapshotStateList<IssueHead>,
-    issueState: MutableState<IssueHead?>,
-    filterState: MutableState<Filter?>,
-    commentState: MutableState<CommentState>
-) {
+fun TwoColLayout(openedIssues: SnapshotStateList<IssueHead>, issueState: MutableState<IssueHead?>) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val splitter = SplitterState()
         var width by mutableStateOf(maxWidth * 0.25F)
         val range = 150.dp..(maxWidth * 0.5F)
         VerticalSplittable(Modifier.fillMaxSize(), splitter, onResize = { width = (width + it).coerceIn(range) }) {
             Box(modifier = Modifier.width(width), contentAlignment = Alignment.Center) {
-                IssuesList(openedIssues, issueState, filterState)
+                IssuesList(openedIssues, issueState)
             }
-            OpenedIssues(openedIssues, issueState, commentState, false)
+            OpenedIssues(openedIssues, issueState)
         }
     }
 }
@@ -105,12 +84,7 @@ fun TwoColLayout(
 @ExperimentalComposeUiApi
 @ExperimentalMaterialApi
 @Composable
-fun OpenedIssues(
-    openedIssues: SnapshotStateList<IssueHead>,
-    issueState: MutableState<IssueHead?>,
-    commentState: MutableState<CommentState>,
-    backButton: Boolean
-) {
+fun OpenedIssues(openedIssues: SnapshotStateList<IssueHead>, issueState: MutableState<IssueHead?>) {
     Column {
         if (openedIssues.isNotEmpty()) {
             val index = openedIssues.indexOf(issueState.value).coerceAtLeast(0)
@@ -123,7 +97,7 @@ fun OpenedIssues(
                                 // close the current tab and open the one to the right
                                 val oldIndex = openedIssues.indexOf(issueHead)
                                 openedIssues.remove(issueHead)
-                                issueState.value = openedIssues.getOrNull(oldIndex.coerceIn(openedIssues.indices))
+                                issueState.value = if (openedIssues.isEmpty()) null else openedIssues.getOrNull(oldIndex.coerceIn(openedIssues.indices))
                             }) {
                                 Icon(Icons.Default.Close, "close")
                             }
@@ -144,13 +118,10 @@ fun OpenedIssues(
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
-                    },
-                    navigationIcon = if (backButton) {
-                        { Button(onClick = { issueState.value = null }) { Text(text = "Back") } }
-                    } else null
+                    }
                 )
             },
-            content = { CurrentIssueContent(issueState.value, commentState) }
+            content = { CurrentIssueContent(issueState.value) }
         )
     }
 }
@@ -158,14 +129,14 @@ fun OpenedIssues(
 @ExperimentalComposeUiApi
 @ExperimentalMaterialApi
 @Composable
-fun CurrentIssueContent(head: IssueHead?, commentState: MutableState<CommentState>) {
+fun CurrentIssueContent(head: IssueHead?) {
     if (head == null) CurrentIssueStatus { Text("Select issue") }
     else {
         val repo = Repository.current
         when (val issue = uiStateFrom(head.key) { clb: (Result<Issue>) -> Unit -> repo.getIssue(head.key, clb) }.value) {
             is UiState.Loading -> CurrentIssueStatus { Loader() }
             is UiState.Error -> CurrentIssueStatus { ErrorText("data.api.Issue loading error") }
-            is UiState.Success -> CurrentIssueActiveContainer(issue.data, commentState)
+            is UiState.Success -> CurrentIssueActiveContainer(issue.data)
         }
     }
 }
@@ -180,20 +151,20 @@ fun CurrentIssueStatus(content: @Composable () -> Unit) {
 @ExperimentalComposeUiApi
 @ExperimentalMaterialApi
 @Composable
-fun CurrentIssueActiveContainer(issue: Issue, commentState: MutableState<CommentState>) {
+fun CurrentIssueActiveContainer(issue: Issue) {
     val issueState = remember { mutableStateOf(issue) }
     val repo = Repository.current
     when (val editRes = uiStateFrom(issueState.value.key) { clb: (Result<Editmeta>) -> Unit -> repo.getEditmeta(issueState.value.key, clb) }.value) {
         is UiState.Error -> CurrentIssueStatus { ErrorText(editRes.exception) }
         is UiState.Loading -> CurrentIssueStatus { Loader() }
-        is UiState.Success -> CurrentIssueActive(issueState, commentState, editRes.data.fields)
+        is UiState.Success -> CurrentIssueActive(issueState, editRes.data.fields)
     }
 }
 
 @ExperimentalComposeUiApi
 @ExperimentalMaterialApi
 @Composable
-fun CurrentIssueActive(issueState: MutableState<Issue>, commentState: MutableState<CommentState>, editmeta: Map<String, EditMetaField>) {
+fun CurrentIssueActive(issueState: MutableState<Issue>, editmeta: Map<String, EditMetaField>) {
     Box(Modifier.fillMaxSize()) {
         Column(modifier = Modifier.padding(8.dp).fillMaxSize()) {
             IssueHeaderInfo(issueState)
@@ -245,21 +216,8 @@ fun CurrentIssueActive(issueState: MutableState<Issue>, commentState: MutableSta
                 }
             }
             Spacer(Modifier.height(6.dp))
-            CommentsList(issueState, commentState)
+            CommentsList(issueState)
         }
-    }
-}
-
-@Composable
-fun ParsedText(text: String, modifier: Modifier = Modifier, fontSize: TextUnit = 14.sp) {
-    val repo = Repository.current
-    val aText = text.parseJiraText(fontSize, repo)
-    SelectionContainer {
-        ClickableText(text = aText, modifier = modifier, onClick = { offset ->
-            aText.getStringAnnotations(tag = "URL", start = offset, end = offset).firstOrNull()?.let {
-                Desktop.getDesktop().browse(URI(it.item))
-            }
-        })
     }
 }
 
@@ -761,8 +719,9 @@ fun IssueField(label: String, content: @Composable () -> Unit) {
 
 @ExperimentalComposeUiApi
 @Composable
-fun IssuesList(openedIssues: SnapshotStateList<IssueHead>, currentIssue: MutableState<IssueHead?>, currentFilter: MutableState<Filter?>) {
+fun IssuesList(openedIssues: SnapshotStateList<IssueHead>, currentIssue: MutableState<IssueHead?>) {
     val repo = Repository.current
+    val currentFilter: MutableState<Filter?> = remember { mutableStateOf(null) }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -819,91 +778,6 @@ fun IssuesList(openedIssues: SnapshotStateList<IssueHead>, currentIssue: Mutable
             ListBody(openedIssues, currentIssue, currentFilter)
         }
     )
-}
-
-@ExperimentalComposeUiApi
-@Composable
-fun CommentsList(issue: MutableState<Issue>, commentState: MutableState<CommentState>) {
-    val repo = Repository.current
-    when (val comments = uiStateFrom(issue.value) { clb: (Result<Comments>) -> Unit -> repo.getComments(issue.value.key, clb) }.value) {
-        is UiState.Error -> ErrorText(comments.exception)
-        is UiState.Loading -> Loader()
-        is UiState.Success -> {
-            val cList = comments.data.comments.map { DatedIssueItem(comment = it) }
-            val hList = issue.value.changelog?.histories?.map { DatedIssueItem(history = it) } ?: emptyList()
-            val items = cList.plus(hList)
-            Scaffold(
-                modifier = Modifier.fillMaxSize(),
-                topBar = {
-                    TopAppBar(
-                        modifier = Modifier.height(24.dp),
-                        title = { CommentListHeader(items, commentState) },
-                    )
-                },
-                content = {
-                    Box(Modifier.fillMaxSize()) {
-                        val scroll = rememberScrollState()
-                        Box(Modifier.fillMaxSize().padding(end = 6.dp).verticalScroll(scroll)) {
-                            Column {
-                                if (!commentState.value.ascending) {
-                                    CommentEditor(issue)
-                                }
-                                val sorted = if (commentState.value.ascending) items.sortedBy { it.created } else items.sortedByDescending { it.created }
-                                sorted.forEach {
-                                    if (it.isComment && commentState.value.filter != CommentFilter.HISTORY) {
-                                        CommentItem(it.comment!!, issue.value.fields.attachment)
-                                    } else if (it.isHistory && commentState.value.filter != CommentFilter.COMMENTS) {
-                                        HistoryItem(it.history!!)
-                                    }
-                                }
-                                if (commentState.value.ascending) {
-                                    CommentEditor(issue)
-                                }
-                            }
-                        }
-                        VerticalScrollbar(
-                            adapter = rememberScrollbarAdapter(scroll),
-                            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight(),
-                            style = scrollbarStyle
-                        )
-                    }
-                }
-            )
-        }
-    }
-}
-
-@Composable
-fun CommentListHeader(items: List<DatedIssueItem>, commentState: MutableState<CommentState>) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-        Text("${items.count { it.isComment }} Kommentare", Modifier.padding(top = 4.dp, bottom = 2.dp), style = fieldTitleStyle)
-        Spacer(Modifier.width(6.dp))
-        Button(
-            onClick = { commentState.value = commentState.value.copy(ascending = !commentState.value.ascending) },
-            modifier = Modifier.height(20.dp),
-            contentPadding = PaddingValues(2.dp)
-        ) {
-            Text(if (commentState.value.ascending) "Älteste zuerst" else "Neueste zuerst", fontSize = 12.sp)
-        }
-        Spacer(Modifier.width(20.dp))
-        CommentFilterButton(CommentFilter.ALL, "Alle", commentState)
-        Spacer(Modifier.width(4.dp))
-        CommentFilterButton(CommentFilter.COMMENTS, "Kommentare", commentState)
-        Spacer(Modifier.width(4.dp))
-        CommentFilterButton(CommentFilter.HISTORY, "Historie", commentState)
-    }
-}
-
-@Composable
-fun CommentFilterButton(filter: CommentFilter, text: String, commentState: MutableState<CommentState>) {
-    Button(
-        onClick = { commentState.value = commentState.value.copy(filter = filter) },
-        modifier = Modifier.height(20.dp),
-        contentPadding = PaddingValues(2.dp),
-        border = if (commentState.value.filter == filter) BorderStroke(1.dp, Color.White) else null
-    ) {
-        Text(text, fontSize = 12.sp)
-    }
 }
 
 @Composable
@@ -999,67 +873,6 @@ fun ListItem(issueHead: IssueHead) {
                 issueHead.fields.priority?.name?.let {
                     Spacer(Modifier.width(5.dp))
                     Text(it, modifier = Modifier.padding(2.dp), color = Color.Gray)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun CommentItem(comment: Comment, attachments: List<Attachment>?) {
-    val repo = Repository.current
-    Card(Modifier.padding(4.dp).fillMaxWidth(), backgroundColor = Color(40, 40, 40), border = BorderStroke(1.dp, Color.Gray)) {
-        Column(Modifier.fillMaxWidth().padding(2.dp)) {
-            Row(Modifier.fillMaxWidth()) {
-                Text(
-                    text = AnnotatedString.Builder().apply {
-                        append("Kommentar")
-                        comment.author.displayName?.let {
-                            append(" von ")
-                            pushStyle(SpanStyle(fontWeight = FontWeight.Bold))
-                            append(it)
-                            pop()
-                        }
-                        append(" ")
-                        append(timePrinter.format(comment.created))
-                        comment.updateAuthor?.displayName?.let {
-                            append("       Geändert")
-                            append(" von ")
-                            pushStyle(SpanStyle(fontWeight = FontWeight.Bold))
-                            append(it)
-                            pop()
-                            append(" ")
-                            append(timePrinter.format(comment.updated))
-                        }
-                    }.toAnnotatedString(),
-                    color = Color.Gray
-                )
-                comment.properties.firstOrNull { it.key == "sd.public.comment" }?.let {
-                    if (it.value["internal"] == true) {
-                        Spacer(Modifier.width(10.dp))
-                        Box(Modifier.border(1.dp, Color.Gray)) {
-                            Text("intern", fontSize = 13.sp, modifier = Modifier.padding(3.dp))
-                        }
-                    }
-                }
-            }
-            Divider(color = Color.Gray, thickness = 1.dp)
-            ParsedText(comment.body, Modifier.fillMaxWidth().padding(3.dp), 16.sp)
-            val references = comment.body.getAttachments()
-            if (references.isNotEmpty()) {
-                Divider(color = Color.Gray, thickness = 1.dp)
-                LazyRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    references.forEach { ref ->
-                        attachments?.firstOrNull { it.filename == ref }?.let {
-                            item {
-                                when (val att = uiStateFrom(it.content) { clb: (Result<File>) -> Unit -> repo.download(it.content, clb) }.value) {
-                                    is UiState.Loading -> CircularProgressIndicator()
-                                    is UiState.Error -> Text(att.exception)
-                                    is UiState.Success -> ClickableImage(att.data)
-                                }
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -1179,69 +992,3 @@ fun Label(label: String, content: @Composable RowScope.() -> Unit) {
         content()
     }
 }
-
-data class CommentState(var filter: CommentFilter, var ascending: Boolean)
-
-enum class CommentFilter {
-    COMMENTS, HISTORY, ALL
-}
-
-private fun String.parseJiraText(fontSize: TextUnit = 14.sp, repo: JiraRepository): AnnotatedString {
-    val lines = split("\n").map { it.split(Regex("(\\s+| )")) }
-    return AnnotatedString.Builder().apply {
-        pushStyle(SpanStyle(color = Color(219, 219, 219), fontSize = fontSize))
-        var count = 0
-        lines.forEachIndexed { index, line ->
-            if (index > 0) {
-                append("\n")
-                count++
-            }
-            line.forEach { word ->
-                count += when {
-                    word.isHyperlink() -> {
-                        pushStringAnnotation(tag = "URL", annotation = word)
-                        withStyle(style = SpanStyle(color = Color(88, 129, 252))) {
-                            append(word)
-                        }
-                        pop()
-                        word.length
-                    }
-
-                    word.isMention() -> {
-                        val user = word.getUserFromMention()
-                        var translated = ""
-                        repo.getUser(user) {
-                            val displayName = when (it) {
-                                is Result.Error -> "[ERROR]"
-                                is Result.Success -> it.data.displayName ?: "[ERROR]"
-                            }
-                            translated = word.replace(Regex("\\[~\\S*]"), displayName)
-                        }
-                        while (translated.isEmpty()) {
-                            Thread.sleep(1L)
-                        }
-                        withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
-                            append(translated)
-                        }
-                        translated.length
-                    }
-
-                    else -> {
-                        append(word)
-                        word.length
-                    }
-                }
-                append(" ")
-                count++
-            }
-        }
-    }.toAnnotatedString()
-}
-
-private fun String.getAttachments() = Regex("!.+\\..+\\|?.*!").findAll(this).map {it.value }.toList()
-
-private fun String.isHyperlink() = startsWith("http")
-
-private fun String.isMention() = contains(Regex("\\[~\\S*]"))
-
-private fun String.getUserFromMention() = dropWhile { it != '~' }.drop(1).takeWhile { it != ']' }

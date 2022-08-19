@@ -1,12 +1,11 @@
 package data.local
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.module.kotlin.MissingKotlinParameterException
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flowOf
 import java.io.File
 import java.io.FileNotFoundException
 import java.io.FileOutputStream
@@ -26,30 +25,60 @@ class Settings {
         }
     }
 
-    val restUrl: Flow<String> get() = flowOf(settings.restUrl)
-    val loginFormUrl: Flow<String> get() = flowOf(settings.loginFormUrl)
-    val username: Flow<String> get() = flowOf(settings.username)
-    val password: Flow<String> get() = flowOf(settings.password)
+    var restUrl: String
+        get() = _restUrl.value
+        set(value) {
+            _restUrl.value = value
+            settings.restUrl = value
+            save()
+        }
 
-    fun setRestUrl(restUrl: String) {
-        settings = settings.copy(restUrl = restUrl)
-        save()
-    }
+    var loginFormUrl: String
+        get() = _loginFormUrl.value
+        set(value) {
+            _loginFormUrl.value = value
+            settings.loginFormUrl = value
+            save()
+        }
 
-    fun setLoginFormUrl(loginFormUrl: String) {
-        settings = settings.copy(loginFormUrl = loginFormUrl)
-        save()
-    }
+    var username: String
+        get() = _username.value
+        set(value) {
+            _username.value = value
+            settings.username = value
+            save()
+        }
 
-    fun setUsername(username: String) {
-        settings = settings.copy(username = username)
-        save()
-    }
+    var password: String
+        get() = _password.value
+        set(value) {
+            _password.value = value
+            settings.password = value
+            save()
+        }
 
-    fun setPassword(password: String) {
-        settings = settings.copy(password = password)
-        save()
-    }
+    var commentView: CommentViewFilter
+        get() = CommentViewFilter.valueOf(_commentView.value)
+        set(value) {
+            _commentView.value = value.name
+            settings.commentView = value.name
+            save()
+        }
+
+    var commentAscending: Boolean
+        get() = _commentAscending.value
+        set(value) {
+            _commentAscending.value = value
+            settings.commentAscending = value
+            save()
+        }
+
+    private val _restUrl = mutableStateOf(settings.restUrl)
+    private val _loginFormUrl = mutableStateOf(settings.loginFormUrl)
+    private val _username = mutableStateOf(settings.username)
+    private val _password = mutableStateOf(settings.password)
+    private val _commentView = mutableStateOf(settings.commentView)
+    private val _commentAscending = mutableStateOf(settings.commentAscending)
 
     private fun save() {
         jacksonObjectMapper().writeValue(FileOutputStream(settingsPath), settings)
@@ -92,6 +121,16 @@ class Settings {
         const val settingsPath = "config/settings.json"
     }
 
-    data class SettingsDTO(var restUrl: String, var loginFormUrl: String, var username: String, var password: String)
+    data class SettingsDTO(
+        var restUrl: String,
+        var loginFormUrl: String,
+        var username: String,
+        var password: String,
+        var commentView: String,
+        var commentAscending: Boolean
+    )
 
+    enum class CommentViewFilter {
+        COMMENTS, HISTORY, ALL
+    }
 }

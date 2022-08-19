@@ -3,7 +3,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -18,7 +21,6 @@ import androidx.compose.ui.window.application
 import data.api.JiraRepository
 import data.api.Myself
 import data.local.Settings.Companion.withSettings
-import kotlinx.coroutines.launch
 import ui.*
 
 @ExperimentalComposeUiApi
@@ -29,42 +31,18 @@ fun main() = application {
         title = "JiraViewer",
         state = WindowState(size = DpSize(1540.dp, 800.dp))
     ) {
-        val scope = rememberCoroutineScope()
         val errorText = remember { mutableStateOf("") }
 
         withSettings { settings ->
-            val restUrl = remember { mutableStateOf("") }
-            val loginFormUrl = remember { mutableStateOf("") }
-            val username = remember { mutableStateOf("") }
-            val password = remember { mutableStateOf("") }
-            settings.restUrl.collectAsState("", scope.coroutineContext).value.let {
-                if (it.isNotBlank() && restUrl.value.isBlank()) restUrl.value = it
-            }
-            settings.loginFormUrl.collectAsState("", scope.coroutineContext).value.let {
-                if (it.isNotBlank() && loginFormUrl.value.isBlank()) loginFormUrl.value = it
-            }
-            settings.username.collectAsState("", scope.coroutineContext).value.let {
-                if (it.isNotBlank() && username.value.isBlank()) username.value = it
-            }
-            settings.password.collectAsState("", scope.coroutineContext).value.let {
-                if (it.isNotBlank() && password.value.isBlank()) password.value = it
-            }
-
             MaterialTheme(colors = darkColors(primary = Color(120, 120, 120), onPrimary = Color.White)) {
-                if (errorText.value.isNotBlank() || restUrl.value.isBlank() || loginFormUrl.value.isBlank() || username.value.isBlank() || password.value.isBlank()) {
-                    ConnectionSettingsInput(restUrl, loginFormUrl, username, password, errorText)
+                if (errorText.value.isNotBlank() || settings.restUrl.isBlank() || settings.loginFormUrl.isBlank() || settings.username.isBlank() || settings.password.isBlank()) {
+                    ConnectionSettingsView(settings, errorText)
                 } else {
-                    val repo = JiraRepository(restUrl.value, loginFormUrl.value, username.value, password.value)
+                    val repo = JiraRepository(settings.restUrl, settings.loginFormUrl, settings.username, settings.password)
                     when (val result = uiStateFrom { clb: (data.api.Result<Myself>) -> Unit -> repo.myself(clb) }.value) {
                         is UiState.Error -> errorText.value = result.exception
                         is UiState.Loading -> FullPageLoader()
                         is UiState.Success -> {
-                            scope.launch {
-                                settings.setRestUrl(restUrl.value)
-                                settings.setLoginFormUrl(loginFormUrl.value)
-                                settings.setUsername(username.value)
-                                settings.setPassword(password.value)
-                            }
                             CompositionLocalProvider(Repository provides repo) {
                                 IssuesView()
                             }
