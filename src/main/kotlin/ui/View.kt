@@ -5,19 +5,20 @@ import FullsizeInfo
 import Loader
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Error
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
@@ -32,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import data.api.*
+import data.local.Settings.Companion.settings
 import org.ocpsoft.prettytime.PrettyTime
 import ui.splitter.SplitterState
 import ui.splitter.VerticalSplittable
@@ -700,48 +702,22 @@ private fun IssuesList(openedIssues: SnapshotStateList<IssueHead>, currentIssue:
             TopAppBar(
                 title = { },
                 actions = {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        FilterDropdown(currentIssue, currentFilter)
-                        var searchText by remember { mutableStateOf("") }
-                        var loading by remember { mutableStateOf(false) }
-                        var error by remember { mutableStateOf(false) }
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            TextField(
-                                value = searchText,
-                                onValueChange = { error = false; searchText = it },
-                                modifier = Modifier.fillMaxWidth().onKeyEvent { event ->
-                                    if (event.key == Key.Enter) {
-                                        loading = true
-                                        repo.getIssue(searchText) {
-                                            when (it) {
-                                                is Result.Error -> {
-                                                    error = true
-                                                    loading = false
-                                                }
-
-                                                is Result.Success -> {
-                                                    loading = false
-                                                    val iss = it.data
-                                                    val head = IssueHead(iss.id, iss.key, iss.fields.toHeadFields())
-                                                    if (head !in openedIssues) openedIssues += head
-                                                    currentIssue.value = head
-                                                }
-                                            }
-                                        }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        FilterDropdown(currentFilter)
+                        Row(modifier = Modifier.padding(end = 10.dp), verticalAlignment = Alignment.Bottom) {
+                            val project = remember { mutableStateOf(settings.projects[0]) }
+                            ProjectDropdown(project)
+                            Text("-", modifier = Modifier.padding(6.dp))
+                            IssueTextField { issue ->
+                                repo.getIssue("${project.value}-$issue") {
+                                    if (it is Result.Success) {
+                                        val iss = it.data
+                                        val head = IssueHead(iss.id, iss.key, iss.fields.toHeadFields())
+                                        if (head !in openedIssues) openedIssues += head
+                                        currentIssue.value = head
                                     }
-                                    false
-                                },
-                                placeholder = { Text("Search") },
-                                trailingIcon = {
-                                    if (error) {
-                                        Icon(Icons.Filled.Error, "error", tint = Color.Red)
-                                    }
-                                    if (loading) {
-                                        CircularProgressIndicator()
-                                    }
-                                },
-                                singleLine = true
-                            )
+                                }
+                            }
                         }
                     }
                 }
@@ -754,38 +730,81 @@ private fun IssuesList(openedIssues: SnapshotStateList<IssueHead>, currentIssue:
 }
 
 @Composable
-private fun FilterDropdown(currentIssue: MutableState<IssueHead?>, currentFilter: MutableState<Filter?>) {
-    var expanded by remember { mutableStateOf(false) }
-    val repo = Repository.current
-    val filters = uiStateFrom(currentFilter) { clb: (Result<List<Filter>>) -> Unit -> repo.getFilters(clb) }
-    Box(Modifier.fillMaxWidth(0.5F).wrapContentSize(Alignment.CenterStart).border(2.dp, Color.Gray)) {
-        Text(currentFilter.value?.name ?: "Filter", modifier = Modifier.clickable(onClick = { expanded = true }).padding(6.dp))
-        DropdownMenu(expanded, onDismissRequest = { expanded = false }, modifier = Modifier.requiredSizeIn(maxHeight = 600.dp)) {
-            filters.value.let { state ->
-                when (state) {
-                    is UiState.Success -> {
-                        state.data.sortedBy { it.id.toInt() }.forEach { filter ->
-                            Text(text = filter.name, modifier = Modifier.fillMaxWidth().padding(2.dp).clickable {
-                                currentFilter.value = filter
-                                currentIssue.value = null
-                                expanded = false
-                            })
-                            if (filter.id == "-1") {
-                                Divider()
+private fun FilterDropdown(currentFilter: MutableState<Filter?>) {
+    Column {
+        Text("Filter", fontSize = 12.sp)
+
+        var expanded by remember { mutableStateOf(false) }
+        val repo = Repository.current
+        val filters = uiStateFrom(currentFilter) { clb: (Result<List<Filter>>) -> Unit -> repo.getFilters(clb) }
+        Box(Modifier.wrapContentSize(Alignment.CenterStart).border(2.dp, Color.Gray)) {
+            Text(currentFilter.value?.name ?: "Filter", modifier = Modifier.clickable(onClick = { expanded = true }).padding(6.dp))
+            DropdownMenu(expanded, onDismissRequest = { expanded = false }, modifier = Modifier.requiredSizeIn(maxHeight = 600.dp)) {
+                filters.value.let { state ->
+                    when (state) {
+                        is UiState.Success -> {
+                            state.data.sortedBy { it.id.toInt() }.forEach { filter ->
+                                Text(text = filter.name, modifier = Modifier.fillMaxWidth().padding(2.dp).clickable {
+                                    currentFilter.value = filter
+                                    expanded = false
+                                })
+                                if (filter.id == "-1") {
+                                    Divider()
+                                }
                             }
                         }
-                    }
 
-                    is UiState.Loading -> Loader()
-                    is UiState.Error -> ErrorText(state.exception)
+                        is UiState.Loading -> Loader()
+                        is UiState.Error -> ErrorText(state.exception)
+                    }
+                }
+            }
+        }
+
+        // default filter on startup
+        if (currentFilter.value == null && filters.component1() is UiState.Success) {
+            currentFilter.value = (filters.component1() as UiState.Success<List<Filter>>).data.first { it.id == "-2" }
+        }
+    }
+}
+
+@Composable
+private fun ProjectDropdown(project: MutableState<String>) {
+    Column {
+        Text("Project", fontSize = 12.sp)
+        var expanded by remember { mutableStateOf(false) }
+        Box(Modifier.wrapContentSize(Alignment.CenterStart).border(2.dp, Color.Gray)) {
+            Text(project.value, modifier = Modifier.clickable(onClick = { expanded = true }).padding(6.dp))
+            DropdownMenu(expanded, onDismissRequest = { expanded = false }, modifier = Modifier.requiredSizeIn(maxHeight = 600.dp)) {
+                settings.projects.forEach { p ->
+                    Text(text = p, modifier = Modifier.fillMaxWidth().padding(2.dp).clickable {
+                        project.value = p
+                        expanded = false
+                    })
                 }
             }
         }
     }
+}
 
-    // default filter on startup
-    if (currentFilter.value == null && filters.component1() is UiState.Success) {
-        currentFilter.value = (filters.component1() as UiState.Success<List<Filter>>).data.first { it.id == "-2" }
+@ExperimentalComposeUiApi
+@Composable
+private fun IssueTextField(onSubmit: (String) -> Unit) {
+    Column {
+        Text("Issue", fontSize = 12.sp)
+        var issueNumber by remember { mutableStateOf("") }
+        BasicTextField(
+            value = issueNumber,
+            onValueChange = { issueNumber = it },
+            modifier = Modifier.height(34.dp).border(2.dp, Color.Gray).width(80.dp).onKeyEvent { event ->
+                if (event.key == Key.Enter) onSubmit(issueNumber)
+                false
+            },
+            textStyle = TextStyle(color = Color.LightGray, fontSize = 18.sp),
+            singleLine = true,
+            cursorBrush = SolidColor(Color.Gray),
+            decorationBox = { input -> Box(Modifier.padding(6.dp)) { input() } }
+        )
     }
 }
 

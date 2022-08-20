@@ -1,6 +1,8 @@
 package data.local
 
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.module.kotlin.MissingKotlinParameterException
@@ -59,6 +61,11 @@ class Settings private constructor() {
             save()
         }
 
+    val projects: SettingsCollection<String> = SettingsCollection(mutableStateListOf(*settingsDto.projects.toTypedArray())) {
+        settingsDto.projects = it
+        save()
+    }
+
     private val _restUrl = mutableStateOf(settingsDto.restUrl)
     private val _loginFormUrl = mutableStateOf(settingsDto.loginFormUrl)
     private val _username = mutableStateOf(settingsDto.username)
@@ -113,13 +120,47 @@ class Settings private constructor() {
         }
     }
 
+    class SettingsCollection<T>(private val items: SnapshotStateList<T>, private val onChange: (List<T>) -> Unit) : MutableList<T> {
+
+        override fun clear() {
+            items.clear()
+            onChange(items)
+        }
+
+        override fun add(index: Int, element: T) {
+            items.add(index, element)
+            onChange(items)
+        }
+
+        override val size get() = items.size
+        override fun addAll(elements: Collection<T>) = items.addAll(elements).also { if (it) onChange(items) }
+        override fun addAll(index: Int, elements: Collection<T>) = items.addAll(index, elements).also { if (it) onChange(items) }
+        override fun add(element: T) = items.add(element).also { onChange(items) }
+        override fun containsAll(elements: Collection<T>) = items.containsAll(elements)
+        override fun contains(element: T) = items.contains(element)
+        override fun get(index: Int) = items[index]
+        override fun isEmpty() = items.isEmpty()
+        override fun iterator() = items.iterator()
+        override fun listIterator() = items.listIterator()
+        override fun listIterator(index: Int) = items.listIterator(index)
+        override fun removeAt(index: Int) = items.removeAt(index).also { onChange(items) }
+        override fun subList(fromIndex: Int, toIndex: Int) = items.subList(fromIndex, toIndex)
+        override fun set(index: Int, element: T) = items.set(index, element)
+        override fun retainAll(elements: Collection<T>) = items.retainAll(elements).also { onChange(items) }
+        override fun removeAll(elements: Collection<T>) = items.removeAll(elements).also { onChange(items) }
+        override fun remove(element: T) = items.remove(element).also { onChange(items) }
+        override fun lastIndexOf(element: T) = items.lastIndexOf(element)
+        override fun indexOf(element: T) = items.indexOf(element)
+    }
+
     data class SettingsDTO(
         var restUrl: String,
         var loginFormUrl: String,
         var username: String,
         var password: String,
         var commentView: String,
-        var commentAscending: Boolean
+        var commentAscending: Boolean,
+        var projects: List<String>
     )
 
     enum class CommentViewFilter {

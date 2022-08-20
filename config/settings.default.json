@@ -4,5 +4,8 @@
   "username": "",
   "password": "",
   "commentView": "COMMENTS",
-  "commentAscending": true
+  "commentAscending": true,
+  "projects": [
+    "CHANGEME"
+  ]
 }
