@@ -31,7 +31,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Deb, TargetFormat.Msi)
             packageName = "JiraViewer"
-            packageVersion = "0.1.1"
+            packageVersion = "0.1.2"
         }
     }
 }

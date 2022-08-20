@@ -11,18 +11,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import data.local.Settings
 
 @Composable
-fun ConnectionSettingsInput(
-    restUrl: MutableState<String>,
-    loginFormUrl: MutableState<String>,
-    username: MutableState<String>,
-    password: MutableState<String>,
-    errorText: MutableState<String>
-) {
+fun ConnectionSettingsView(settings: Settings, errorText: MutableState<String>) {
     Scaffold {
         Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-            var restUrlLocal by remember { mutableStateOf(restUrl.value) }
+            var restUrlLocal by remember { mutableStateOf(settings.restUrl) }
             TextField(
                 value = restUrlLocal,
                 onValueChange = { restUrlLocal = it },
@@ -32,7 +27,7 @@ fun ConnectionSettingsInput(
                 isError = restUrlLocal.isBlank(),
                 singleLine = true
             )
-            var loginFormUrlLocal by remember { mutableStateOf(loginFormUrl.value) }
+            var loginFormUrlLocal by remember { mutableStateOf(settings.loginFormUrl) }
             TextField(
                 value = loginFormUrlLocal,
                 onValueChange = { loginFormUrlLocal = it },
@@ -42,7 +37,7 @@ fun ConnectionSettingsInput(
                 isError = loginFormUrlLocal.isBlank(),
                 singleLine = true
             )
-            var usernameLocal by remember { mutableStateOf(username.value) }
+            var usernameLocal by remember { mutableStateOf(settings.username) }
             TextField(
                 value = usernameLocal,
                 onValueChange = { usernameLocal = it },
@@ -52,7 +47,7 @@ fun ConnectionSettingsInput(
                 isError = usernameLocal.isBlank(),
                 singleLine = true
             )
-            var passwordLocal by remember { mutableStateOf(password.value) }
+            var passwordLocal by remember { mutableStateOf(settings.password) }
             TextField(
                 value = passwordLocal,
                 onValueChange = { passwordLocal = it },
@@ -64,10 +59,10 @@ fun ConnectionSettingsInput(
             )
             Button(
                 onClick = {
-                    restUrl.value = restUrlLocal
-                    loginFormUrl.value = loginFormUrlLocal
-                    username.value = usernameLocal
-                    password.value = passwordLocal
+                    settings.restUrl = restUrlLocal
+                    settings.loginFormUrl = loginFormUrlLocal
+                    settings.username = usernameLocal
+                    settings.password = passwordLocal
                     errorText.value = ""
                 },
                 modifier = Modifier.padding(top = 20.dp),

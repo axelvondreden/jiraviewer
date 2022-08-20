@@ -1,22 +1,88 @@
 package data.local
 
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.module.kotlin.MissingKotlinParameterException
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flowOf
 import java.io.File
 import java.io.FileNotFoundException
 import java.io.FileOutputStream
 
-class Settings {
+class Settings private constructor() {
 
-    private var settings: SettingsDTO
+    var restUrl: String
+        get() = _restUrl.value
+        set(value) {
+            _restUrl.value = value
+            settingsDto.restUrl = value
+            save()
+        }
 
-    init {
-        settings = try {
+    var loginFormUrl: String
+        get() = _loginFormUrl.value
+        set(value) {
+            _loginFormUrl.value = value
+            settingsDto.loginFormUrl = value
+            save()
+        }
+
+    var username: String
+        get() = _username.value
+        set(value) {
+            _username.value = value
+            settingsDto.username = value
+            save()
+        }
+
+    var password: String
+        get() = _password.value
+        set(value) {
+            _password.value = value
+            settingsDto.password = value
+            save()
+        }
+
+    var commentView: CommentViewFilter
+        get() = CommentViewFilter.valueOf(_commentView.value)
+        set(value) {
+            _commentView.value = value.name
+            settingsDto.commentView = value.name
+            save()
+        }
+
+    var commentAscending: Boolean
+        get() = _commentAscending.value
+        set(value) {
+            _commentAscending.value = value
+            settingsDto.commentAscending = value
+            save()
+        }
+
+    val projects: SettingsCollection<String> = SettingsCollection(mutableStateListOf(*settingsDto.projects.toTypedArray())) {
+        settingsDto.projects = it
+        save()
+    }
+
+    private val _restUrl = mutableStateOf(settingsDto.restUrl)
+    private val _loginFormUrl = mutableStateOf(settingsDto.loginFormUrl)
+    private val _username = mutableStateOf(settingsDto.username)
+    private val _password = mutableStateOf(settingsDto.password)
+    private val _commentView = mutableStateOf(settingsDto.commentView)
+    private val _commentAscending = mutableStateOf(settingsDto.commentAscending)
+
+    private fun save() {
+        jacksonObjectMapper().writeValue(FileOutputStream(settingsPath), settingsDto)
+    }
+
+    companion object {
+
+        private const val settingsDefaultPath = "config/settings.default.json"
+        const val settingsPath = "config/settings.json"
+
+        private val settingsDto: SettingsDTO = try {
             checkSettings()
             jacksonObjectMapper().readValue(File(settingsPath).readText(), SettingsDTO::class.java)
         } catch (e: FileNotFoundException) {
@@ -24,43 +90,8 @@ class Settings {
         } catch (e: MissingKotlinParameterException) {
             jacksonObjectMapper().readValue(File(settingsDefaultPath).readText(), SettingsDTO::class.java)
         }
-    }
 
-    val restUrl: Flow<String> get() = flowOf(settings.restUrl)
-    val loginFormUrl: Flow<String> get() = flowOf(settings.loginFormUrl)
-    val username: Flow<String> get() = flowOf(settings.username)
-    val password: Flow<String> get() = flowOf(settings.password)
-
-    fun setRestUrl(restUrl: String) {
-        settings = settings.copy(restUrl = restUrl)
-        save()
-    }
-
-    fun setLoginFormUrl(loginFormUrl: String) {
-        settings = settings.copy(loginFormUrl = loginFormUrl)
-        save()
-    }
-
-    fun setUsername(username: String) {
-        settings = settings.copy(username = username)
-        save()
-    }
-
-    fun setPassword(password: String) {
-        settings = settings.copy(password = password)
-        save()
-    }
-
-    private fun save() {
-        jacksonObjectMapper().writeValue(FileOutputStream(settingsPath), settings)
-    }
-
-    companion object {
-
-        @Composable
-        fun withSettings(action: @Composable (Settings) -> Unit) {
-            action(Settings())
-        }
+        val settings = Settings()
 
         private fun checkSettings() {
             val objectMapper = jacksonObjectMapper()
@@ -87,11 +118,52 @@ class Settings {
                 }
             }
         }
-
-        const val settingsDefaultPath = "config/settings.default.json"
-        const val settingsPath = "config/settings.json"
     }
 
-    data class SettingsDTO(var restUrl: String, var loginFormUrl: String, var username: String, var password: String)
+    class SettingsCollection<T>(private val items: SnapshotStateList<T>, private val onChange: (List<T>) -> Unit) : MutableList<T> {
 
+        override fun clear() {
+            items.clear()
+            onChange(items)
+        }
+
+        override fun add(index: Int, element: T) {
+            items.add(index, element)
+            onChange(items)
+        }
+
+        override val size get() = items.size
+        override fun addAll(elements: Collection<T>) = items.addAll(elements).also { if (it) onChange(items) }
+        override fun addAll(index: Int, elements: Collection<T>) = items.addAll(index, elements).also { if (it) onChange(items) }
+        override fun add(element: T) = items.add(element).also { onChange(items) }
+        override fun containsAll(elements: Collection<T>) = items.containsAll(elements)
+        override fun contains(element: T) = items.contains(element)
+        override fun get(index: Int) = items[index]
+        override fun isEmpty() = items.isEmpty()
+        override fun iterator() = items.iterator()
+        override fun listIterator() = items.listIterator()
+        override fun listIterator(index: Int) = items.listIterator(index)
+        override fun removeAt(index: Int) = items.removeAt(index).also { onChange(items) }
+        override fun subList(fromIndex: Int, toIndex: Int) = items.subList(fromIndex, toIndex)
+        override fun set(index: Int, element: T) = items.set(index, element)
+        override fun retainAll(elements: Collection<T>) = items.retainAll(elements).also { onChange(items) }
+        override fun removeAll(elements: Collection<T>) = items.removeAll(elements).also { onChange(items) }
+        override fun remove(element: T) = items.remove(element).also { onChange(items) }
+        override fun lastIndexOf(element: T) = items.lastIndexOf(element)
+        override fun indexOf(element: T) = items.indexOf(element)
+    }
+
+    data class SettingsDTO(
+        var restUrl: String,
+        var loginFormUrl: String,
+        var username: String,
+        var password: String,
+        var commentView: String,
+        var commentAscending: Boolean,
+        var projects: List<String>
+    )
+
+    enum class CommentViewFilter {
+        COMMENTS, HISTORY, ALL
+    }
 }

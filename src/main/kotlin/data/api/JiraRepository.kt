@@ -4,6 +4,7 @@ import com.github.kittinunf.fuel.Fuel
 import com.github.kittinunf.fuel.core.*
 import com.github.kittinunf.fuel.jackson.objectBody
 import com.github.kittinunf.fuel.jackson.responseObject
+import data.local.Settings.Companion.settings
 import java.io.File
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -13,7 +14,12 @@ sealed class Result<out R> {
     data class Error(val exception: String) : Result<Nothing>()
 }
 
-class JiraRepository(private val baseUrl: String, private val loginUrl: String, private val user: String, private val password: String) {
+class JiraRepository {
+
+    private val baseUrl = settings.restUrl
+    private val loginUrl = settings.loginFormUrl
+    private val user = settings.username
+    private val password = settings.password
 
     private var cookies: List<String> = emptyList()
 
@@ -139,7 +145,7 @@ class JiraRepository(private val baseUrl: String, private val loginUrl: String, 
                 } else if (response.isSuccessful && result.component1() != null && response.isJsonResponse()) {
                     onSuccess(file)
                 } else {
-                    withLogin {
+                    withLogin(callback) {
                         Fuel.download(path)
                             .fileDestination { _, _ -> file }
                             .appendHeader(*cookies.map { Headers.COOKIE to it }.toTypedArray())
@@ -168,7 +174,7 @@ class JiraRepository(private val baseUrl: String, private val loginUrl: String, 
                 } else if (response.isSuccessful && result.component1() != null && response.isJsonResponse()) {
                     onSuccess(result.get())
                 } else {
-                    withLogin {
+                    withLogin(callback) {
                         Fuel.get(path)
                             .appendHeader(*cookies.map { Headers.COOKIE to it }.toTypedArray())
                             .responseObject { _: Request, response1: Response, result1: com.github.kittinunf.result.Result<T, FuelError> ->
@@ -198,7 +204,7 @@ class JiraRepository(private val baseUrl: String, private val loginUrl: String, 
                 } else if (response.isSuccessful && result.component1() != null && response.isJsonResponse()) {
                     onSuccess(result.get())
                 } else {
-                    withLogin {
+                    withLogin(callback) {
                         Fuel.post(path)
                             .appendHeader(*cookies.map { Headers.COOKIE to it }.toTypedArray())
                             .objectBody(body)
@@ -229,7 +235,7 @@ class JiraRepository(private val baseUrl: String, private val loginUrl: String, 
                 } else if (response.isSuccessful) {
                     onSuccess()
                 } else {
-                    withLogin {
+                    withLogin(callback) {
                         Fuel.post(path)
                             .appendHeader(*cookies.map { Headers.COOKIE to it }.toTypedArray())
                             .objectBody(body)
@@ -260,7 +266,7 @@ class JiraRepository(private val baseUrl: String, private val loginUrl: String, 
                 } else if (response.isSuccessful) {
                     onSuccess()
                 } else {
-                    withLogin {
+                    withLogin(callback) {
                         Fuel.put(path)
                             .appendHeader(*cookies.map { Headers.COOKIE to it }.toTypedArray())
                             .objectBody(body)
@@ -276,13 +282,25 @@ class JiraRepository(private val baseUrl: String, private val loginUrl: String, 
             }
     }
 
-    private fun withLogin(action: () -> Unit) {
+    private inline fun <T> withLogin(crossinline callback: (Result<T>) -> Unit, crossinline action: () -> Unit) {
         val encodedPw = URLEncoder.encode(password, StandardCharsets.UTF_8)
         Fuel.post(loginUrl)
             .body("username=$user&password=$encodedPw&login-form-type=pwd")
-            .response { _, response, _ ->
-                cookies = response.headers[Headers.SET_COOKIE].toList()
-                action.invoke()
+            .response { _, response, result ->
+                val html = result.get().decodeToString()
+                // search for error message on html result like a retard
+                val error = html.split("<div class=\"error-msg\">").getOrNull(1)
+                    ?.replace("\n", " ")?.replace("\t", " ")
+                    ?.replace(Regex("\\s+"), " ")
+                    ?.dropWhile { it != '>' }?.drop(1)
+                    ?.takeWhile { it != '<' }
+
+                if (error.isNullOrBlank()) {
+                    cookies = response.headers[Headers.SET_COOKIE].toList()
+                    action()
+                } else {
+                    callback(Result.Error(error))
+                }
             }
     }
 

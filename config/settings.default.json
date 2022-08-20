@@ -2,5 +2,10 @@
   "restUrl": "",
   "loginFormUrl": "",
   "username": "",
-  "password": ""
+  "password": "",
+  "commentView": "COMMENTS",
+  "commentAscending": true,
+  "projects": [
+    "CHANGEME"
+  ]
 }
