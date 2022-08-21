@@ -98,23 +98,23 @@ private fun CommentListHeader(items: List<DatedIssueItem>) {
             Text(if (settings.commentAscending) "Oldest first" else "Newest first", fontSize = 12.sp)
         }
         Spacer(Modifier.width(20.dp))
-        CommentFilterButton(Settings.CommentViewFilter.ALL, "All")
+        CommentFilterButton(Settings.CommentViewFilter.ALL)
         Spacer(Modifier.width(4.dp))
-        CommentFilterButton(Settings.CommentViewFilter.COMMENTS, "Comments")
+        CommentFilterButton(Settings.CommentViewFilter.COMMENTS)
         Spacer(Modifier.width(4.dp))
-        CommentFilterButton(Settings.CommentViewFilter.HISTORY, "History")
+        CommentFilterButton(Settings.CommentViewFilter.HISTORY)
     }
 }
 
 @Composable
-private fun CommentFilterButton(filter: Settings.CommentViewFilter, text: String) {
+private fun CommentFilterButton(filter: Settings.CommentViewFilter) {
     Button(
         onClick = { settings.commentView = filter },
         modifier = Modifier.height(20.dp),
         contentPadding = PaddingValues(2.dp),
         border = if (settings.commentView == filter) BorderStroke(1.dp, Color.White) else null
     ) {
-        Text(text, fontSize = 12.sp)
+        Text(filter.title, fontSize = 12.sp)
     }
 }
 

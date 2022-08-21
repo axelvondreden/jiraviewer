@@ -12,18 +12,22 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.rememberNotification
-import androidx.compose.ui.window.rememberTrayState
 import data.local.Settings
 import data.local.Settings.Companion.settings
 
 private val settingsLabelStyle = TextStyle(fontWeight = FontWeight.Bold, fontSize = 15.sp)
 
+@ExperimentalComposeUiApi
 @Composable
 fun SettingsView() {
     Scaffold {
@@ -32,16 +36,17 @@ fun SettingsView() {
             Box(Modifier.fillMaxSize().verticalScroll(scroll), contentAlignment = Alignment.Center) {
                 Column(modifier = Modifier.width(600.dp)) {
                     SettingsRow("Comment order") {
-                        Button(onClick = { settings.commentAscending = !settings.commentAscending }, modifier = Modifier.width(200.dp)) {
+                        Button(onClick = { settings.commentAscending = !settings.commentAscending }, modifier = Modifier.padding(5.dp).fillMaxWidth()) {
                             Text(if (settings.commentAscending) "Oldest first" else "Newest first")
                         }
                     }
                     SettingsRow("Projects") {
-                        Column(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.fillMaxWidth().padding(5.dp)) {
                             var text by remember { mutableStateOf("") }
                             OutlinedTextField(
                                 value = text,
                                 onValueChange = { text = it },
+                                modifier = Modifier.fillMaxWidth().onKeyEvent { if (it.key == Key.Enter) settings.projects += text; text = ""; false },
                                 label = { Text("Project") },
                                 trailingIcon = {
                                     IconButton(onClick = { settings.projects += text; text = "" }, enabled = text.isNotBlank()) {
@@ -51,14 +56,10 @@ fun SettingsView() {
                                 singleLine = true
                             )
                             FlowRow(horizontalGap = 3.dp, verticalGap = 5.dp) {
-                                val trayState = rememberTrayState()
-                                val notification = rememberNotification("Notification", "Must have at least one project")
                                 settings.projects.forEach { project ->
                                     Chip(title = project, onDelete = {
                                         if (settings.projects.size > 1) {
                                             settings.projects -= it
-                                        } else {
-                                            trayState.sendNotification(notification)
                                         }
                                     })
                                 }
@@ -67,17 +68,19 @@ fun SettingsView() {
                     }
                     SettingsRow("Background Updates") {
                         var expanded by remember { mutableStateOf(false) }
-                        Column {
-                            Button(onClick = { expanded = true }, modifier = Modifier.width(200.dp)) {
-                                Text(settings.updates.name)
-                                Icon(Icons.Default.ArrowDropDown, "pick update strategy")
-                            }
-                            DropdownMenu(expanded, onDismissRequest = { expanded = false }, modifier = Modifier.width(200.dp).requiredSizeIn(maxHeight = 600.dp)) {
-                                Settings.UpdateStrategy.values().forEach { updateStrategy ->
-                                    Text(text = updateStrategy.name, modifier = Modifier.fillMaxWidth().padding(2.dp).clickable {
-                                        settings.updates = updateStrategy
-                                        expanded = false
-                                    })
+                        BoxWithConstraints(Modifier.fillMaxWidth()) {
+                            Column(Modifier.fillMaxWidth()) {
+                                Button(onClick = { expanded = true }, modifier = Modifier.padding(5.dp).fillMaxWidth()) {
+                                    Text(settings.updates.name)
+                                    Icon(Icons.Default.ArrowDropDown, "pick update strategy")
+                                }
+                                DropdownMenu(expanded, onDismissRequest = { expanded = false }, modifier = Modifier.width(this@BoxWithConstraints.maxWidth).requiredSizeIn(maxHeight = 600.dp)) {
+                                    Settings.UpdateStrategy.values().forEach { updateStrategy ->
+                                        Column(Modifier.fillMaxWidth().border(1.dp, Color.Gray).clickable { settings.updates = updateStrategy; expanded = false }) {
+                                            Text(updateStrategy.title, Modifier.fillMaxWidth().padding(2.dp))
+                                            Text(updateStrategy.description, Modifier.fillMaxWidth().padding(2.dp), color = Color.LightGray, fontSize = 14.sp)
+                                        }
+                                    }
                                 }
                             }
                         }

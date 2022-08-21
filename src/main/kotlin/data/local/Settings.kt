@@ -140,12 +140,14 @@ class Settings private constructor() {
         var updates: String
     )
 
-    enum class CommentViewFilter {
-        COMMENTS, HISTORY, ALL
+    enum class CommentViewFilter(val title: String) {
+        COMMENTS("Comments"), HISTORY("History"), ALL("All")
     }
 
-    enum class UpdateStrategy {
-        NONE, TABS, FILTER
+    enum class UpdateStrategy(val title: String, val description: String) {
+        NONE("None", "Does nothing"),
+        TABS("Tabs", "Periodically checks opened tabs for changes"),
+        FILTER("Filter", "Periodically checks all issues from the currently selected filter")
     }
 
     class SettingsCollection<T>(private val items: SnapshotStateList<T>, private val onChange: (List<T>) -> Unit) : MutableList<T> {
