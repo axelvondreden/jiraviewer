@@ -66,12 +66,21 @@ class Settings private constructor() {
         save()
     }
 
+    var updates: UpdateStrategy
+        get() = UpdateStrategy.valueOf(_updates.value)
+        set(value) {
+            _updates.value = value.name
+            settingsDto.updates = value.name
+            save()
+        }
+
     private val _restUrl = mutableStateOf(settingsDto.restUrl)
     private val _loginFormUrl = mutableStateOf(settingsDto.loginFormUrl)
     private val _username = mutableStateOf(settingsDto.username)
     private val _password = mutableStateOf(settingsDto.password)
     private val _commentView = mutableStateOf(settingsDto.commentView)
     private val _commentAscending = mutableStateOf(settingsDto.commentAscending)
+    private val _updates = mutableStateOf(settingsDto.updates)
 
     private fun save() {
         jacksonObjectMapper().writeValue(FileOutputStream(settingsPath), settingsDto)
@@ -120,6 +129,25 @@ class Settings private constructor() {
         }
     }
 
+    data class SettingsDTO(
+        var restUrl: String,
+        var loginFormUrl: String,
+        var username: String,
+        var password: String,
+        var commentView: String,
+        var commentAscending: Boolean,
+        var projects: List<String>,
+        var updates: String
+    )
+
+    enum class CommentViewFilter {
+        COMMENTS, HISTORY, ALL
+    }
+
+    enum class UpdateStrategy {
+        NONE, TABS, FILTER
+    }
+
     class SettingsCollection<T>(private val items: SnapshotStateList<T>, private val onChange: (List<T>) -> Unit) : MutableList<T> {
 
         override fun clear() {
@@ -151,19 +179,5 @@ class Settings private constructor() {
         override fun remove(element: T) = items.remove(element).also { onChange(items) }
         override fun lastIndexOf(element: T) = items.lastIndexOf(element)
         override fun indexOf(element: T) = items.indexOf(element)
-    }
-
-    data class SettingsDTO(
-        var restUrl: String,
-        var loginFormUrl: String,
-        var username: String,
-        var password: String,
-        var commentView: String,
-        var commentAscending: Boolean,
-        var projects: List<String>
-    )
-
-    enum class CommentViewFilter {
-        COMMENTS, HISTORY, ALL
     }
 }
