@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
@@ -33,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import data.api.*
+import data.local.Notification
 import data.local.Settings.Companion.settings
 import org.ocpsoft.prettytime.PrettyTime
 import ui.splitter.SplitterState
@@ -54,8 +56,8 @@ private val labelValueStyle = TextStyle(fontSize = 14.sp)
 @ExperimentalMaterialApi
 @Composable
 fun IssuesView() {
-    val openedIssues: SnapshotStateList<IssueHead> = remember { mutableStateListOf() }
-    val issueState: MutableState<IssueHead?> = remember { mutableStateOf(null) }
+    val openedIssues = remember { mutableStateListOf<IssueHead>() }
+    val issueState = remember { mutableStateOf<IssueHead?>(null) }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             val splitter = SplitterState()
@@ -77,16 +79,13 @@ fun IssuesView() {
 @ExperimentalComposeUiApi
 @Composable
 private fun OpenedIssues(openedIssues: SnapshotStateList<IssueHead>, issueState: MutableState<IssueHead?>) = Column {
-    OpenedIssuesNavigationBar(openedIssues, issueState)
-    BoxWithConstraints(Modifier.fillMaxSize()) {
-        val splitter = SplitterState()
-        var width by mutableStateOf(maxWidth * 0.25F)
-        val range = 150.dp..(maxWidth * 0.5F)
-        VerticalSplittable(Modifier.fillMaxSize(), splitter, onResize = { width = (width + it).coerceIn(range) }) {
-            Box(modifier = Modifier.width(width), contentAlignment = Alignment.Center) {
-                CurrentIssue(issueState)
-            }
-            //NotificationList()
+    val notifications = remember { mutableStateListOf<Notification>() }
+    val notifyOpen = remember { mutableStateOf(false) }
+    OpenedIssuesNavigationBar(openedIssues, issueState, notifyOpen)
+    BoxWithConstraints {
+        Row(Modifier.fillMaxSize()) {
+            CurrentIssue(modifier = Modifier.width(this@BoxWithConstraints.maxWidth - (if (notifyOpen.value) 340.dp else 0.dp)), issueState)
+            if (notifyOpen.value) NotificationList(modifier = Modifier.width(340.dp).border(2.dp, Color.DarkGray), notifications)
         }
     }
 }
@@ -97,31 +96,42 @@ private fun Footer() = Row(Modifier.fillMaxWidth().height(24.dp)) {
 }
 
 @Composable
-private fun OpenedIssuesNavigationBar(openedIssues: SnapshotStateList<IssueHead>, issueState: MutableState<IssueHead?>) {
-    val index = openedIssues.indexOf(issueState.value).coerceAtLeast(0)
-    ScrollableTabRow(selectedTabIndex = index, modifier = Modifier.fillMaxWidth(), edgePadding = 10.dp) {
-        openedIssues.forEachIndexed { i, issueHead ->
-            Tab(selected = i == index, onClick = { issueState.value = issueHead }, modifier = Modifier.height(28.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(issueHead.key)
-                    IconButton(onClick = {
-                        // close the current tab and open the one to the right
-                        val oldIndex = openedIssues.indexOf(issueHead)
-                        openedIssues.remove(issueHead)
-                        issueState.value = if (openedIssues.isEmpty()) null else openedIssues.getOrNull(oldIndex.coerceIn(openedIssues.indices))
-                    }) {
-                        Icon(Icons.Default.Close, "close")
+private fun OpenedIssuesNavigationBar(openedIssues: SnapshotStateList<IssueHead>, issueState: MutableState<IssueHead?>, notifyOpen: MutableState<Boolean>) =
+    BoxWithConstraints(Modifier.fillMaxWidth().height(30.dp).background(MaterialTheme.colors.background)) {
+        Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+            if (openedIssues.isNotEmpty()) {
+                val index = openedIssues.indexOf(issueState.value).coerceIn(openedIssues.indices)
+                ScrollableTabRow(selectedTabIndex = index, modifier = Modifier.width(this@BoxWithConstraints.maxWidth - 40.dp), edgePadding = 10.dp) {
+                    openedIssues.forEachIndexed { i, issueHead ->
+                        Tab(selected = i == index, onClick = { issueState.value = issueHead }, modifier = Modifier.height(28.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(issueHead.key)
+                                IconButton(onClick = {
+                                    // close the current tab and open the one to the right
+                                    val oldIndex = openedIssues.indexOf(issueHead)
+                                    openedIssues.remove(issueHead)
+                                    issueState.value = if (openedIssues.isEmpty()) null else openedIssues.getOrNull(oldIndex.coerceIn(openedIssues.indices))
+                                }) {
+                                    Icon(Icons.Default.Close, "close")
+                                }
+                            }
+                        }
                     }
+                }
+            }
+            Row(modifier = Modifier.width(40.dp).border(1.dp, Color.DarkGray), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { notifyOpen.value = !notifyOpen.value }) {
+                    Icon(Icons.Default.Notifications, "toggle notification view", tint = MaterialTheme.colors.primary)
                 }
             }
         }
     }
-}
 
 @ExperimentalMaterialApi
 @ExperimentalComposeUiApi
 @Composable
-private fun CurrentIssue(issueState: MutableState<IssueHead?>) = Scaffold(
+private fun CurrentIssue(modifier: Modifier, issueState: MutableState<IssueHead?>) = Scaffold(
+    modifier = modifier,
     topBar = {
         TopAppBar(
             title = {
