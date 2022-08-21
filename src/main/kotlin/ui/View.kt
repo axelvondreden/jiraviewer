@@ -57,14 +57,63 @@ fun IssuesView() {
     val openedIssues: SnapshotStateList<IssueHead> = remember { mutableStateListOf() }
     val issueState: MutableState<IssueHead?> = remember { mutableStateOf(null) }
     BoxWithConstraints(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize()) {
+            val splitter = SplitterState()
+            var width by mutableStateOf(this@BoxWithConstraints.maxWidth * 0.25F)
+            val range = 150.dp..(this@BoxWithConstraints.maxWidth * 0.5F)
+            VerticalSplittable(Modifier.fillMaxSize(), splitter, onResize = { width = (width + it).coerceIn(range) }) {
+                Box(modifier = Modifier.width(width), contentAlignment = Alignment.Center) {
+                    IssuesList(openedIssues, issueState)
+                }
+                OpenedIssues(openedIssues, issueState)
+            }
+            Divider(Modifier.fillMaxWidth(), Color.Gray)
+            Footer()
+        }
+    }
+}
+
+@ExperimentalMaterialApi
+@ExperimentalComposeUiApi
+@Composable
+private fun OpenedIssues(openedIssues: SnapshotStateList<IssueHead>, issueState: MutableState<IssueHead?>) = Column {
+    OpenedIssuesNavigationBar(openedIssues, issueState)
+    BoxWithConstraints(Modifier.fillMaxSize()) {
         val splitter = SplitterState()
         var width by mutableStateOf(maxWidth * 0.25F)
         val range = 150.dp..(maxWidth * 0.5F)
         VerticalSplittable(Modifier.fillMaxSize(), splitter, onResize = { width = (width + it).coerceIn(range) }) {
             Box(modifier = Modifier.width(width), contentAlignment = Alignment.Center) {
-                IssuesList(openedIssues, issueState)
+                CurrentIssue(issueState)
             }
-            OpenedIssues(openedIssues, issueState)
+            //NotificationList()
+        }
+    }
+}
+
+@Composable
+private fun Footer() = Row(Modifier.fillMaxWidth().height(24.dp)) {
+
+}
+
+@Composable
+private fun OpenedIssuesNavigationBar(openedIssues: SnapshotStateList<IssueHead>, issueState: MutableState<IssueHead?>) {
+    val index = openedIssues.indexOf(issueState.value).coerceAtLeast(0)
+    ScrollableTabRow(selectedTabIndex = index, modifier = Modifier.fillMaxWidth(), edgePadding = 10.dp) {
+        openedIssues.forEachIndexed { i, issueHead ->
+            Tab(selected = i == index, onClick = { issueState.value = issueHead }, modifier = Modifier.height(28.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(issueHead.key)
+                    IconButton(onClick = {
+                        // close the current tab and open the one to the right
+                        val oldIndex = openedIssues.indexOf(issueHead)
+                        openedIssues.remove(issueHead)
+                        issueState.value = if (openedIssues.isEmpty()) null else openedIssues.getOrNull(oldIndex.coerceIn(openedIssues.indices))
+                    }) {
+                        Icon(Icons.Default.Close, "close")
+                    }
+                }
+            }
         }
     }
 }
@@ -72,69 +121,41 @@ fun IssuesView() {
 @ExperimentalMaterialApi
 @ExperimentalComposeUiApi
 @Composable
-private fun OpenedIssues(openedIssues: SnapshotStateList<IssueHead>, issueState: MutableState<IssueHead?>) {
-    Column {
-        if (openedIssues.isNotEmpty()) {
-            val index = openedIssues.indexOf(issueState.value).coerceAtLeast(0)
-            ScrollableTabRow(selectedTabIndex = index, modifier = Modifier.fillMaxWidth(), edgePadding = 10.dp) {
-                openedIssues.forEachIndexed { i, issueHead ->
-                    Tab(selected = i == index, onClick = { issueState.value = issueHead }, modifier = Modifier.height(28.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(issueHead.key)
-                            IconButton(onClick = {
-                                // close the current tab and open the one to the right
-                                val oldIndex = openedIssues.indexOf(issueHead)
-                                openedIssues.remove(issueHead)
-                                issueState.value = if (openedIssues.isEmpty()) null else openedIssues.getOrNull(oldIndex.coerceIn(openedIssues.indices))
-                            }) {
-                                Icon(Icons.Default.Close, "close")
-                            }
-                        }
-                    }
+private fun CurrentIssue(issueState: MutableState<IssueHead?>) = Scaffold(
+    topBar = {
+        TopAppBar(
+            title = {
+                SelectionContainer {
+                    Text(
+                        text = if (issueState.value != null) "${issueState.value!!.key}: ${issueState.value!!.fields.summary}" else "",
+                        style = MaterialTheme.typography.h5,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
-        }
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = {
-                        SelectionContainer {
-                            Text(
-                                text = if (issueState.value != null) "${issueState.value!!.key}: ${issueState.value!!.fields.summary}" else "",
-                                style = MaterialTheme.typography.h5,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                )
-            },
-            content = { CurrentIssueContent(issueState.value) }
         )
-    }
-}
-
-@ExperimentalMaterialApi
-@ExperimentalComposeUiApi
-@Composable
-private fun CurrentIssueContent(head: IssueHead?) {
-    if (head == null) FullsizeInfo { Text("Select issue") }
-    else {
-        val repo = Repository.current
-        when (val issue = uiStateFrom(head.key) { clb: (Result<Issue>) -> Unit -> repo.getIssue(head.key, clb) }.value) {
-            is UiState.Loading -> FullsizeInfo { Loader() }
-            is UiState.Error -> FullsizeInfo { ErrorText("data.api.Issue loading error") }
-            is UiState.Success -> {
-                val issueState = remember { mutableStateOf(issue.data) }
-                when (val editRes = uiStateFrom(issueState.value.key) { clb: (Result<Editmeta>) -> Unit -> repo.getEditmeta(issueState.value.key, clb) }.value) {
-                    is UiState.Error -> FullsizeInfo { ErrorText(editRes.exception) }
-                    is UiState.Loading -> FullsizeInfo { Loader() }
-                    is UiState.Success -> CurrentIssueActive(issueState, editRes.data.fields)
+    },
+    content = {
+        val head = issueState.value
+        if (head == null) FullsizeInfo { Text("Select issue") }
+        else {
+            val repo = Repository.current
+            when (val issue = uiStateFrom(head.key) { clb: (Result<Issue>) -> Unit -> repo.getIssue(head.key, clb) }.value) {
+                is UiState.Loading -> FullsizeInfo { Loader() }
+                is UiState.Error -> FullsizeInfo { ErrorText("data.api.Issue loading error") }
+                is UiState.Success -> {
+                    val issueData = remember { mutableStateOf(issue.data) }
+                    when (val editRes = uiStateFrom(issueData.value.key) { clb: (Result<Editmeta>) -> Unit -> repo.getEditmeta(issueData.value.key, clb) }.value) {
+                        is UiState.Error -> FullsizeInfo { ErrorText(editRes.exception) }
+                        is UiState.Loading -> FullsizeInfo { Loader() }
+                        is UiState.Success -> CurrentIssueActive(issueData, editRes.data.fields)
+                    }
                 }
             }
         }
     }
-}
+)
 
 @ExperimentalMaterialApi
 @ExperimentalComposeUiApi
