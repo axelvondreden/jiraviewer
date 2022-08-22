@@ -9,10 +9,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
@@ -56,7 +53,7 @@ private val labelValueStyle = TextStyle(fontSize = 14.sp)
 @ExperimentalComposeUiApi
 @ExperimentalMaterialApi
 @Composable
-fun IssuesView() {
+fun IssuesView(onSettings: () -> Unit) {
     val openedIssues = remember { mutableStateListOf<IssueHead>() }
     val issueState = remember { mutableStateOf<IssueHead?>(null) }
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -68,7 +65,7 @@ fun IssuesView() {
                 Box(modifier = Modifier.width(width), contentAlignment = Alignment.Center) {
                     IssuesList(openedIssues, issueState)
                 }
-                OpenedIssues(openedIssues, issueState)
+                OpenedIssues(openedIssues, issueState, onSettings)
             }
             Divider(Modifier.fillMaxWidth(), Color.Gray)
             Footer()
@@ -79,11 +76,11 @@ fun IssuesView() {
 @ExperimentalMaterialApi
 @ExperimentalComposeUiApi
 @Composable
-private fun OpenedIssues(openedIssues: SnapshotStateList<IssueHead>, issueState: MutableState<IssueHead?>) = Column {
+private fun OpenedIssues(openedIssues: SnapshotStateList<IssueHead>, issueState: MutableState<IssueHead?>, onSettings: () -> Unit) = Column {
     val notifyService = NotificationService.current
     val notifications = notifyService.notifications.collectAsState(emptyList()).value
     val notifyOpen = remember { mutableStateOf(false) }
-    OpenedIssuesNavigationBar(openedIssues, issueState, notifyOpen)
+    OpenedIssuesNavigationBar(openedIssues, issueState, notifyOpen, onSettings)
     BoxWithConstraints {
         Row(Modifier.fillMaxSize()) {
             CurrentIssue(modifier = Modifier.width(this@BoxWithConstraints.maxWidth - (if (notifyOpen.value) 340.dp else 0.dp)), issueState)
@@ -98,36 +95,47 @@ private fun Footer() = Row(Modifier.fillMaxWidth().height(24.dp)) {
 }
 
 @Composable
-private fun OpenedIssuesNavigationBar(openedIssues: SnapshotStateList<IssueHead>, issueState: MutableState<IssueHead?>, notifyOpen: MutableState<Boolean>) =
-    BoxWithConstraints(Modifier.fillMaxWidth().height(30.dp).background(MaterialTheme.colors.background)) {
-        Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-            if (openedIssues.isNotEmpty()) {
-                val index = openedIssues.indexOf(issueState.value).coerceIn(openedIssues.indices)
-                ScrollableTabRow(selectedTabIndex = index, modifier = Modifier.width(this@BoxWithConstraints.maxWidth - 40.dp), edgePadding = 10.dp) {
-                    openedIssues.forEachIndexed { i, issueHead ->
-                        Tab(selected = i == index, onClick = { issueState.value = issueHead }, modifier = Modifier.height(28.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(issueHead.key)
-                                IconButton(onClick = {
-                                    // close the current tab and open the one to the right
-                                    val oldIndex = openedIssues.indexOf(issueHead)
-                                    openedIssues.remove(issueHead)
-                                    issueState.value = if (openedIssues.isEmpty()) null else openedIssues.getOrNull(oldIndex.coerceIn(openedIssues.indices))
-                                }) {
-                                    Icon(Icons.Default.Close, "close")
-                                }
+private fun OpenedIssuesNavigationBar(
+    openedIssues: SnapshotStateList<IssueHead>,
+    issueState: MutableState<IssueHead?>,
+    notifyOpen: MutableState<Boolean>,
+    onSettings: () -> Unit
+) = BoxWithConstraints(Modifier.fillMaxWidth().height(30.dp).background(MaterialTheme.colors.background)) {
+    Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+        if (openedIssues.isNotEmpty()) {
+            val index = openedIssues.indexOf(issueState.value).coerceIn(openedIssues.indices)
+            ScrollableTabRow(selectedTabIndex = index, modifier = Modifier.width(this@BoxWithConstraints.maxWidth - 100.dp), edgePadding = 10.dp) {
+                openedIssues.forEachIndexed { i, issueHead ->
+                    Tab(selected = i == index, onClick = { issueState.value = issueHead }, modifier = Modifier.height(28.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(issueHead.key)
+                            IconButton(onClick = {
+                                // close the current tab and open the one to the right
+                                val oldIndex = openedIssues.indexOf(issueHead)
+                                openedIssues.remove(issueHead)
+                                issueState.value = if (openedIssues.isEmpty()) null else openedIssues.getOrNull(oldIndex.coerceIn(openedIssues.indices))
+                            }) {
+                                Icon(Icons.Default.Close, "close")
                             }
                         }
                     }
                 }
             }
-            Row(modifier = Modifier.width(40.dp).border(1.dp, Color.DarkGray), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { notifyOpen.value = !notifyOpen.value }) {
-                    Icon(Icons.Default.Notifications, "toggle notification view", tint = MaterialTheme.colors.primary)
-                }
+        }
+        Row(modifier = Modifier.width(100.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = { notifyOpen.value = !notifyOpen.value }) {
+                Icon(
+                    imageVector = Icons.Default.Notifications,
+                    contentDescription = "toggle notification view",
+                    tint = if (notifyOpen.value) Color.LightGray else MaterialTheme.colors.primary
+                )
+            }
+            IconButton(onClick = { onSettings() }) {
+                Icon(imageVector = Icons.Default.Settings, contentDescription = "settings", tint = MaterialTheme.colors.primary)
             }
         }
     }
+}
 
 @ExperimentalMaterialApi
 @ExperimentalComposeUiApi
