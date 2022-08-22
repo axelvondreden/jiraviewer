@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.*
 import data.api.JiraRepository
 import data.api.Myself
+import data.local.NotificationService
 import data.local.Settings.Companion.settings
 import ui.*
 
@@ -47,7 +48,8 @@ fun main() = application {
                     is UiState.Error -> errorText.value = result.exception
                     is UiState.Loading -> Scaffold { FullsizeInfo { Loader() } }
                     is UiState.Success -> {
-                        CompositionLocalProvider(Repository provides repo) {
+                        val notificationService = NotificationService()
+                        CompositionLocalProvider(Repository provides repo, NotificationService provides notificationService) {
                             IssuesView()
                         }
                     }

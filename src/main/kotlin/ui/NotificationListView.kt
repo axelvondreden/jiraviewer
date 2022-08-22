@@ -7,7 +7,6 @@ import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -22,7 +21,7 @@ import data.local.Notification
 private val dateStyle = TextStyle(color = Color.Gray, fontStyle = FontStyle.Italic, fontSize = 12.sp)
 
 @Composable
-fun NotificationList(modifier: Modifier = Modifier, notifications: SnapshotStateList<Notification>) = Scaffold(
+fun NotificationList(modifier: Modifier = Modifier, notifications: List<Notification>) = Scaffold(
     modifier = modifier,
     topBar = {
         TopAppBar(
@@ -38,7 +37,7 @@ fun NotificationList(modifier: Modifier = Modifier, notifications: SnapshotState
 )
 
 @Composable
-private fun ListBody(notifications: SnapshotStateList<Notification>) = Box(Modifier.fillMaxSize()) {
+private fun ListBody(notifications: List<Notification>) = Box(Modifier.fillMaxSize()) {
     val scroll = rememberScrollState()
     Box(Modifier.fillMaxSize().verticalScroll(scroll)) {
         Column {

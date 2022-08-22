@@ -34,7 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import data.api.*
-import data.local.Notification
+import data.local.NotificationService
 import data.local.Settings.Companion.settings
 import org.ocpsoft.prettytime.PrettyTime
 import ui.splitter.SplitterState
@@ -42,6 +42,7 @@ import ui.splitter.VerticalSplittable
 import java.awt.Desktop
 
 val Repository = compositionLocalOf<JiraRepository> { error("Undefined repository") }
+val NotificationService = compositionLocalOf<NotificationService> { error("Undefined service") }
 
 val timePrinter = PrettyTime()
 
@@ -79,7 +80,8 @@ fun IssuesView() {
 @ExperimentalComposeUiApi
 @Composable
 private fun OpenedIssues(openedIssues: SnapshotStateList<IssueHead>, issueState: MutableState<IssueHead?>) = Column {
-    val notifications = remember { mutableStateListOf<Notification>() }
+    val notifyService = NotificationService.current
+    val notifications = notifyService.notifications.collectAsState(emptyList()).value
     val notifyOpen = remember { mutableStateOf(false) }
     OpenedIssuesNavigationBar(openedIssues, issueState, notifyOpen)
     BoxWithConstraints {
