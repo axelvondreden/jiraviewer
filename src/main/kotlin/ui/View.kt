@@ -5,6 +5,7 @@ import FullsizeInfo
 import Loader
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.*
@@ -888,7 +889,7 @@ private fun ListBody(openedIssues: SnapshotStateList<IssueHead>, currentIssue: M
 
 @Composable
 private fun ListItem(issueHead: IssueHead) {
-    Card(Modifier.padding(4.dp).fillMaxWidth(), backgroundColor = Color(54, 54, 54)) {
+    Card(modifier = Modifier.padding(4.dp).fillMaxWidth(), backgroundColor = Color(54, 54, 54)) {
         Column(Modifier.fillMaxSize().padding(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                 Text(text = issueHead.key, fontWeight = FontWeight.Bold, fontSize = 16.sp)
@@ -899,17 +900,27 @@ private fun ListItem(issueHead: IssueHead) {
                 }
             }
             Text(issueHead.fields.summary ?: "")
-            Row {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 issueHead.fields.status?.name?.let {
-                    Text(it, modifier = Modifier.padding(2.dp), color = Color.Gray)
+                    Text(text = it, modifier = Modifier.padding(2.dp), color = Color.Gray)
                 }
                 issueHead.fields.priority?.name?.let {
                     Spacer(Modifier.width(5.dp))
-                    Text(it, modifier = Modifier.padding(2.dp), color = Color.Gray)
+                    Box(Modifier.background(it.priorityColor(), RoundedCornerShape(4.dp))) {
+                        Text(text = it, modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp), color = Color.LightGray)
+                    }
                 }
             }
         }
     }
+}
+
+private fun String.priorityColor() = when (this.lowercase()) {
+    "low" -> Color.DarkGray
+    "medium" -> Color(0x2f, 0x41, 0x91)
+    "high" -> Color(0x9e, 0x5c, 0x11)
+    "blocker" -> Color(0x91, 0x2f, 0x41)
+    else -> Color(0x3d, 0x3c, 0x3b)
 }
 
 @Composable
