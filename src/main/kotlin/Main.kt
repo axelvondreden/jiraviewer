@@ -8,8 +8,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyShortcut
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.DpSize
@@ -17,26 +15,31 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.*
 import data.api.JiraRepository
 import data.api.Myself
+import data.local.NotificationService
 import data.local.Settings.Companion.settings
 import ui.*
 
 @ExperimentalComposeUiApi
 @ExperimentalMaterialApi
 fun main() = application {
-    var settingsOpened by remember { mutableStateOf(false) }
-    if (settingsOpened) {
-        Window(onCloseRequest = { settingsOpened = false }, title = "JiraViewer - Settings", state = WindowState(position = WindowPosition(Alignment.Center), size = DpSize(800.dp, 1000.dp))) {
+    val settingsOpened = remember { mutableStateOf(false) }
+    if (settingsOpened.value) {
+        Window(
+            onCloseRequest = { settingsOpened.value = false },
+            state = WindowState(position = WindowPosition(Alignment.Center), size = DpSize(800.dp, 1000.dp)),
+            title = "JiraViewer - Settings",
+            alwaysOnTop = true
+        ) {
             MaterialTheme(colors = darkColors(primary = Color(120, 120, 120), onPrimary = Color.White)) {
                 SettingsView()
             }
         }
     }
-    Window(onCloseRequest = ::exitApplication, title = "JiraViewer", state = WindowState(position = WindowPosition(Alignment.Center), size = DpSize(1540.dp, 800.dp))) {
-        MenuBar {
-            Menu("File", mnemonic = 'F') {
-                Item("Settings", onClick = { settingsOpened = true }, shortcut = KeyShortcut(Key.S, ctrl = true, alt = true))
-            }
-        }
+    Window(
+        onCloseRequest = ::exitApplication,
+        state = WindowState(position = WindowPosition(Alignment.Center), size = DpSize(1540.dp, 800.dp)),
+        title = "JiraViewer"
+    ) {
         MaterialTheme(colors = darkColors(primary = Color(120, 120, 120), onPrimary = Color.White)) {
             val errorText = remember { mutableStateOf("") }
             if (errorText.value.isNotBlank() || settings.restUrl.isBlank() || settings.loginFormUrl.isBlank() || settings.username.isBlank() || settings.password.isBlank()) {
@@ -47,8 +50,9 @@ fun main() = application {
                     is UiState.Error -> errorText.value = result.exception
                     is UiState.Loading -> Scaffold { FullsizeInfo { Loader() } }
                     is UiState.Success -> {
-                        CompositionLocalProvider(Repository provides repo) {
-                            IssuesView()
+                        val notificationService = NotificationService(repo)
+                        CompositionLocalProvider(Repository provides repo, NotificationService provides notificationService) {
+                            IssuesView(onSettings = { settingsOpened.value = true })
                         }
                     }
                 }

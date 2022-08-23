@@ -5,13 +5,12 @@ import FullsizeInfo
 import Loader
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
@@ -33,6 +32,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import data.api.*
+import data.local.NotificationService
+import data.local.Settings
 import data.local.Settings.Companion.settings
 import org.ocpsoft.prettytime.PrettyTime
 import ui.splitter.SplitterState
@@ -40,6 +41,7 @@ import ui.splitter.VerticalSplittable
 import java.awt.Desktop
 
 val Repository = compositionLocalOf<JiraRepository> { error("Undefined repository") }
+val NotificationService = compositionLocalOf<NotificationService> { error("Undefined service") }
 
 val timePrinter = PrettyTime()
 
@@ -53,18 +55,22 @@ private val labelValueStyle = TextStyle(fontSize = 14.sp)
 @ExperimentalComposeUiApi
 @ExperimentalMaterialApi
 @Composable
-fun IssuesView() {
-    val openedIssues: SnapshotStateList<IssueHead> = remember { mutableStateListOf() }
-    val issueState: MutableState<IssueHead?> = remember { mutableStateOf(null) }
+fun IssuesView(onSettings: () -> Unit) {
+    val openedIssues = remember { mutableStateListOf<IssueHead>() }
+    val issueState = remember { mutableStateOf<IssueHead?>(null) }
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val splitter = SplitterState()
-        var width by mutableStateOf(maxWidth * 0.25F)
-        val range = 150.dp..(maxWidth * 0.5F)
-        VerticalSplittable(Modifier.fillMaxSize(), splitter, onResize = { width = (width + it).coerceIn(range) }) {
-            Box(modifier = Modifier.width(width), contentAlignment = Alignment.Center) {
-                IssuesList(openedIssues, issueState)
+        Column(Modifier.fillMaxSize()) {
+            val splitter = SplitterState()
+            var width by mutableStateOf(this@BoxWithConstraints.maxWidth * 0.25F)
+            val range = 150.dp..(this@BoxWithConstraints.maxWidth * 0.5F)
+            VerticalSplittable(Modifier.fillMaxSize(), splitter, onResize = { width = (width + it).coerceIn(range) }) {
+                Box(modifier = Modifier.width(width), contentAlignment = Alignment.Center) {
+                    IssuesList(openedIssues, issueState)
+                }
+                OpenedIssues(openedIssues, issueState, onSettings)
             }
-            OpenedIssues(openedIssues, issueState)
+            Divider(Modifier.fillMaxWidth(), Color.Gray)
+            Footer()
         }
     }
 }
@@ -72,11 +78,50 @@ fun IssuesView() {
 @ExperimentalMaterialApi
 @ExperimentalComposeUiApi
 @Composable
-private fun OpenedIssues(openedIssues: SnapshotStateList<IssueHead>, issueState: MutableState<IssueHead?>) {
-    Column {
+private fun OpenedIssues(openedIssues: SnapshotStateList<IssueHead>, issueState: MutableState<IssueHead?>, onSettings: () -> Unit) = Column {
+    val notify = NotificationService.current
+    val notifyOpen = remember { mutableStateOf(false) }
+    OpenedIssuesNavigationBar(openedIssues, issueState, notifyOpen, onSettings)
+    BoxWithConstraints {
+        Row(Modifier.fillMaxSize()) {
+            CurrentIssue(modifier = Modifier.width(this@BoxWithConstraints.maxWidth - (if (notifyOpen.value) 340.dp else 0.dp)), issueState)
+            if (notifyOpen.value) {
+                NotificationList(
+                    modifier = Modifier.width(340.dp).border(2.dp, Color.DarkGray),
+                    notifications = notify.notifications.sortedByDescending { it.date },
+                    onClick = {
+                        if (it.head !in openedIssues) {
+                            openedIssues += it.head
+                            if (settings.updates == Settings.UpdateStrategy.TABS) {
+                                notify.addIssues(it.head)
+                            }
+                        }
+                        issueState.value = it.head
+                    },
+                    onDismiss = { notify.dismiss(it) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun Footer() = Row(Modifier.fillMaxWidth().height(24.dp)) {
+
+}
+
+@Composable
+private fun OpenedIssuesNavigationBar(
+    openedIssues: SnapshotStateList<IssueHead>,
+    issueState: MutableState<IssueHead?>,
+    notifyOpen: MutableState<Boolean>,
+    onSettings: () -> Unit
+) = BoxWithConstraints(Modifier.fillMaxWidth().height(30.dp).background(MaterialTheme.colors.background)) {
+    Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
         if (openedIssues.isNotEmpty()) {
-            val index = openedIssues.indexOf(issueState.value).coerceAtLeast(0)
-            ScrollableTabRow(selectedTabIndex = index, modifier = Modifier.fillMaxWidth(), edgePadding = 10.dp) {
+            val index = openedIssues.indexOf(issueState.value).coerceIn(openedIssues.indices)
+            ScrollableTabRow(selectedTabIndex = index, modifier = Modifier.width(this@BoxWithConstraints.maxWidth - 100.dp), edgePadding = 10.dp) {
+                val notify = NotificationService.current
                 openedIssues.forEachIndexed { i, issueHead ->
                     Tab(selected = i == index, onClick = { issueState.value = issueHead }, modifier = Modifier.height(28.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -85,6 +130,9 @@ private fun OpenedIssues(openedIssues: SnapshotStateList<IssueHead>, issueState:
                                 // close the current tab and open the one to the right
                                 val oldIndex = openedIssues.indexOf(issueHead)
                                 openedIssues.remove(issueHead)
+                                if (settings.updates == Settings.UpdateStrategy.TABS) {
+                                    notify.removeIssues(issueHead)
+                                }
                                 issueState.value = if (openedIssues.isEmpty()) null else openedIssues.getOrNull(oldIndex.coerceIn(openedIssues.indices))
                             }) {
                                 Icon(Icons.Default.Close, "close")
@@ -94,47 +142,64 @@ private fun OpenedIssues(openedIssues: SnapshotStateList<IssueHead>, issueState:
                 }
             }
         }
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = {
-                        SelectionContainer {
-                            Text(
-                                text = if (issueState.value != null) "${issueState.value!!.key}: ${issueState.value!!.fields.summary}" else "",
-                                style = MaterialTheme.typography.h5,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
+        Row(modifier = Modifier.width(100.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = { notifyOpen.value = !notifyOpen.value }) {
+                Icon(
+                    imageVector = Icons.Default.Notifications,
+                    contentDescription = "toggle notification view",
+                    tint = if (notifyOpen.value) Color.LightGray else MaterialTheme.colors.primary
                 )
-            },
-            content = { CurrentIssueContent(issueState.value) }
-        )
+            }
+            IconButton(onClick = { onSettings() }) {
+                Icon(imageVector = Icons.Default.Settings, contentDescription = "settings", tint = MaterialTheme.colors.primary)
+            }
+        }
     }
 }
 
 @ExperimentalMaterialApi
 @ExperimentalComposeUiApi
 @Composable
-private fun CurrentIssueContent(head: IssueHead?) {
-    if (head == null) FullsizeInfo { Text("Select issue") }
-    else {
-        val repo = Repository.current
-        when (val issue = uiStateFrom(head.key) { clb: (Result<Issue>) -> Unit -> repo.getIssue(head.key, clb) }.value) {
-            is UiState.Loading -> FullsizeInfo { Loader() }
-            is UiState.Error -> FullsizeInfo { ErrorText("data.api.Issue loading error") }
-            is UiState.Success -> {
-                val issueState = remember { mutableStateOf(issue.data) }
-                when (val editRes = uiStateFrom(issueState.value.key) { clb: (Result<Editmeta>) -> Unit -> repo.getEditmeta(issueState.value.key, clb) }.value) {
-                    is UiState.Error -> FullsizeInfo { ErrorText(editRes.exception) }
-                    is UiState.Loading -> FullsizeInfo { Loader() }
-                    is UiState.Success -> CurrentIssueActive(issueState, editRes.data.fields)
+private fun CurrentIssue(modifier: Modifier, issueState: MutableState<IssueHead?>) = Scaffold(
+    modifier = modifier,
+    topBar = {
+        TopAppBar(
+            title = {
+                SelectionContainer {
+                    Text(
+                        text = if (issueState.value != null) "${issueState.value!!.key}: ${issueState.value!!.fields.summary}" else "",
+                        style = MaterialTheme.typography.h5,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        )
+    },
+    content = {
+        val head = issueState.value
+        if (head == null) FullsizeInfo { Text("Select issue") }
+        else {
+            val repo = Repository.current
+            val notify = NotificationService.current
+            when (val issue = uiStateFrom(head.key) { clb: (Result<Issue>) -> Unit -> repo.getIssue(head.key, clb) }.value) {
+                is UiState.Loading -> FullsizeInfo { Loader() }
+                is UiState.Error -> FullsizeInfo { ErrorText("data.api.Issue loading error") }
+                is UiState.Success -> {
+                    val issueData = remember { mutableStateOf(issue.data) }
+                    when (val editRes = uiStateFrom(issueData.value.key) { clb: (Result<Editmeta>) -> Unit -> repo.getEditmeta(issueData.value.key, clb) }.value) {
+                        is UiState.Error -> FullsizeInfo { ErrorText(editRes.exception) }
+                        is UiState.Loading -> FullsizeInfo { Loader() }
+                        is UiState.Success -> {
+                            CurrentIssueActive(issueData, editRes.data.fields)
+                            notify.updateIssue(head)
+                        }
+                    }
                 }
             }
         }
     }
-}
+)
 
 @ExperimentalMaterialApi
 @ExperimentalComposeUiApi
@@ -696,13 +761,14 @@ private fun IssueField(label: String, content: @Composable () -> Unit) {
 @Composable
 private fun IssuesList(openedIssues: SnapshotStateList<IssueHead>, currentIssue: MutableState<IssueHead?>) {
     val repo = Repository.current
+    val notify = NotificationService.current
     val currentFilter: MutableState<Filter?> = remember { mutableStateOf(null) }
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { },
                 actions = {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
                         FilterDropdown(currentFilter)
                         Row(modifier = Modifier.padding(end = 10.dp), verticalAlignment = Alignment.Bottom) {
                             val project = remember { mutableStateOf(settings.projects[0]) }
@@ -713,7 +779,12 @@ private fun IssuesList(openedIssues: SnapshotStateList<IssueHead>, currentIssue:
                                     if (it is Result.Success) {
                                         val iss = it.data
                                         val head = IssueHead(iss.id, iss.key, iss.fields.toHeadFields())
-                                        if (head !in openedIssues) openedIssues += head
+                                        if (head !in openedIssues) {
+                                            openedIssues += head
+                                            if (settings.updates == Settings.UpdateStrategy.TABS) {
+                                                notify.addIssues(head)
+                                            }
+                                        }
                                         currentIssue.value = head
                                     }
                                 }
@@ -736,6 +807,7 @@ private fun FilterDropdown(currentFilter: MutableState<Filter?>) {
 
         var expanded by remember { mutableStateOf(false) }
         val repo = Repository.current
+        val notify = NotificationService.current
         val filters = uiStateFrom(currentFilter) { clb: (Result<List<Filter>>) -> Unit -> repo.getFilters(clb) }
         Box(Modifier.wrapContentSize(Alignment.CenterStart).border(2.dp, Color.Gray)) {
             Text(currentFilter.value?.name ?: "Filter", modifier = Modifier.clickable(onClick = { expanded = true }).padding(6.dp))
@@ -746,6 +818,9 @@ private fun FilterDropdown(currentFilter: MutableState<Filter?>) {
                             state.data.sortedBy { it.id.toInt() }.forEach { filter ->
                                 Text(text = filter.name, modifier = Modifier.fillMaxWidth().padding(2.dp).clickable {
                                     currentFilter.value = filter
+                                    if (settings.updates == Settings.UpdateStrategy.FILTER) {
+                                        notify.clear()
+                                    }
                                     expanded = false
                                 })
                                 if (filter.id == "-1") {
@@ -796,7 +871,7 @@ private fun IssueTextField(onSubmit: (String) -> Unit) {
         BasicTextField(
             value = issueNumber,
             onValueChange = { issueNumber = it },
-            modifier = Modifier.height(34.dp).border(2.dp, Color.Gray).width(80.dp).onKeyEvent { event ->
+            modifier = Modifier.height(30.dp).border(2.dp, Color.Gray).width(80.dp).onKeyEvent { event ->
                 if (event.key == Key.Enter) onSubmit(issueNumber)
                 false
             },
@@ -813,6 +888,11 @@ private fun ListBody(openedIssues: SnapshotStateList<IssueHead>, currentIssue: M
     val repo = Repository.current
     val issues = uiStateFrom(currentFilter.value?.jql) { clb: (Result<SearchResult>) -> Unit ->
         repo.getIssues(currentFilter.value?.jql, clb)
+    }
+
+    if (issues.value is UiState.Success && settings.updates == Settings.UpdateStrategy.FILTER) {
+        val notify = NotificationService.current
+        notify.addIssues(*(issues.value as UiState.Success<SearchResult>).data.issues.toTypedArray())
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -847,7 +927,7 @@ private fun ListBody(openedIssues: SnapshotStateList<IssueHead>, currentIssue: M
 
 @Composable
 private fun ListItem(issueHead: IssueHead) {
-    Card(Modifier.padding(4.dp).fillMaxWidth(), backgroundColor = Color(54, 54, 54)) {
+    Card(modifier = Modifier.padding(4.dp).fillMaxWidth(), backgroundColor = Color(54, 54, 54)) {
         Column(Modifier.fillMaxSize().padding(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                 Text(text = issueHead.key, fontWeight = FontWeight.Bold, fontSize = 16.sp)
@@ -858,17 +938,27 @@ private fun ListItem(issueHead: IssueHead) {
                 }
             }
             Text(issueHead.fields.summary ?: "")
-            Row {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 issueHead.fields.status?.name?.let {
-                    Text(it, modifier = Modifier.padding(2.dp), color = Color.Gray)
+                    Text(text = it, modifier = Modifier.padding(2.dp), color = Color.Gray)
                 }
                 issueHead.fields.priority?.name?.let {
                     Spacer(Modifier.width(5.dp))
-                    Text(it, modifier = Modifier.padding(2.dp), color = Color.Gray)
+                    Box(Modifier.background(it.priorityColor(), RoundedCornerShape(4.dp))) {
+                        Text(text = it, modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp), color = Color.LightGray)
+                    }
                 }
             }
         }
     }
+}
+
+private fun String.priorityColor() = when (this.lowercase()) {
+    "low" -> Color.DarkGray
+    "medium" -> Color(0x2f, 0x41, 0x91)
+    "high" -> Color(0x9e, 0x5c, 0x11)
+    "blocker" -> Color(0x91, 0x2f, 0x41)
+    else -> Color(0x3d, 0x3c, 0x3b)
 }
 
 @Composable

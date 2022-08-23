@@ -68,6 +68,10 @@ data class History(
 
 data class HistoryItem(val field: String, val fromString: String?, val toString: String?)
 
+fun List<HistoryItem>.asChangelogString() = joinToString("/n") {
+    it.field + ": [" + it.fromString + "] -> [" + it.toString + "]"
+}
+
 data class Attachment(
     val id: String,
     val filename: String,
