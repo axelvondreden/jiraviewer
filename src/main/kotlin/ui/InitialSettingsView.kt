@@ -1,6 +1,5 @@
 package ui
 
-import ErrorText
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.Button
 import androidx.compose.material.Scaffold
@@ -12,9 +11,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import data.local.Settings
+import ui.utils.ErrorText
 
 @Composable
-fun ConnectionSettingsView(settings: Settings, errorText: MutableState<String>) {
+fun InitialSettingsView(settings: Settings, errorText: MutableState<String>) {
     Scaffold {
         Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
             var restUrlLocal by remember { mutableStateOf(settings.restUrl) }
@@ -33,7 +33,7 @@ fun ConnectionSettingsView(settings: Settings, errorText: MutableState<String>) 
                 onValueChange = { loginFormUrlLocal = it },
                 modifier = Modifier.width(600.dp).padding(top = 20.dp),
                 label = { Text("Jira Login Form URL") },
-                placeholder = { Text("https://jira-example-domain.com/pkmslogin.form") },
+                placeholder = { Text("https://jira-example-domain.com/login.form") },
                 isError = loginFormUrlLocal.isBlank(),
                 singleLine = true
             )

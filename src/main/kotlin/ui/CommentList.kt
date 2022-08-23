@@ -1,7 +1,5 @@
 package ui
 
-import ErrorText
-import Loader
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -30,20 +28,24 @@ import androidx.compose.ui.window.rememberDialogState
 import data.api.*
 import data.local.Settings
 import data.local.Settings.Companion.settings
+import ui.utils.ErrorText
+import ui.utils.Loader
+import ui.utils.UiState
+import ui.utils.uiStateFrom
 import java.io.File
 
 private val fieldTitleStyle = TextStyle(color = Color.LightGray, fontStyle = FontStyle.Italic, fontSize = 14.sp)
 
 @ExperimentalComposeUiApi
 @Composable
-fun CommentsList(issue: MutableState<Issue>) {
+fun CommentsList(issue: Issue, update: (Update?) -> Unit) {
     val repo = Repository.current
-    when (val comments = uiStateFrom(issue.value) { clb: (Result<Comments>) -> Unit -> repo.getComments(issue.value.key, clb) }.value) {
+    when (val comments = uiStateFrom(issue) { clb: (Result<Comments>) -> Unit -> repo.getComments(issue.key, clb) }.value) {
         is UiState.Error -> ErrorText(comments.exception)
         is UiState.Loading -> Loader()
         is UiState.Success -> {
             val cList = comments.data.comments.map { DatedIssueItem(comment = it) }
-            val hList = issue.value.changelog?.histories?.map { DatedIssueItem(history = it) } ?: emptyList()
+            val hList = issue.changelog?.histories?.map { DatedIssueItem(history = it) } ?: emptyList()
             val items = cList.plus(hList)
             Scaffold(
                 modifier = Modifier.fillMaxSize(),
@@ -59,18 +61,18 @@ fun CommentsList(issue: MutableState<Issue>) {
                         Box(Modifier.fillMaxSize().padding(end = 6.dp).verticalScroll(scroll)) {
                             Column {
                                 if (!settings.commentAscending) {
-                                    CommentEditor(issue)
+                                    CommentEditor(issue, update)
                                 }
                                 val sorted = if (settings.commentAscending) items.sortedBy { it.created } else items.sortedByDescending { it.created }
                                 sorted.forEach {
                                     if (it.isComment && settings.commentView != Settings.CommentViewFilter.HISTORY) {
-                                        CommentItem(it.comment!!, issue.value.fields.attachment)
+                                        CommentItem(it.comment!!, issue.fields.attachment)
                                     } else if (it.isHistory && settings.commentView != Settings.CommentViewFilter.COMMENTS) {
                                         HistoryItem(it.history!!)
                                     }
                                 }
                                 if (settings.commentAscending) {
-                                    CommentEditor(issue)
+                                    CommentEditor(issue, update)
                                 }
                             }
                         }
@@ -158,7 +160,7 @@ private fun CommentItem(comment: Comment, attachments: List<Attachment>?) {
                 }
             }
             Divider(color = Color.Gray, thickness = 1.dp)
-            ParsedText(comment.body, Modifier.fillMaxWidth().padding(3.dp), 16.sp)
+            JiraText(comment.body, Modifier.fillMaxWidth().padding(3.dp), 16.sp)
             val references = comment.body.getAttachments()
             if (references.isNotEmpty()) {
                 Divider(color = Color.Gray, thickness = 1.dp)

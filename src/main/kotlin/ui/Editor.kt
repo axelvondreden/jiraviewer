@@ -16,36 +16,49 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import data.api.Issue
 import data.api.Result
+import data.api.Update
 
 
 @ExperimentalComposeUiApi
 @Composable
-fun CommentEditor(issue: MutableState<Issue>) {
+fun CommentEditor(issue: Issue, update: (Update?) -> Unit) =
     Card(Modifier.padding(4.dp).fillMaxWidth(), backgroundColor = Color(40, 40, 40), border = BorderStroke(1.dp, Color.Gray)) {
         Column(Modifier.fillMaxWidth().padding(2.dp)) {
-            val open = remember { mutableStateOf(false) }
-            if (!open.value) {
-                Button(onClick = { open.value = true }, modifier = Modifier.height(22.dp), contentPadding = PaddingValues(2.dp)) {
+            var open by remember { mutableStateOf(false) }
+            if (!open) {
+                Button(onClick = { open = true }, modifier = Modifier.height(22.dp), contentPadding = PaddingValues(2.dp)) {
                     Text("Add Comment", fontSize = 13.sp)
                 }
             } else {
-                CommentEditorActivated(issue, open)
+                CommentEditorActivated(issue, { open = false }, update)
             }
         }
     }
-}
 
 @ExperimentalComposeUiApi
 @Composable
-private fun CommentEditorActivated(issue: MutableState<Issue>, open: MutableState<Boolean>) {
+private fun CommentEditorActivated(issue: Issue, close: () -> Unit, update: (Update?) -> Unit) {
     val textState = remember { mutableStateOf(TextFieldValue()) }
+    val repo = Repository.current
+
     CommentEditorFunctionRow(textState)
     TextField(
         value = textState.value,
         onValueChange = { textState.value = it },
         modifier = Modifier.fillMaxWidth().onPreviewKeyEvent { shortcuts(it, textState) }
     )
-    CommentEditorSubmitRow(issue, textState, open)
+    CommentEditorSubmitRow(
+        submit = { internal ->
+            if (textState.value.text.isNotBlank()) {
+                repo.addComment(issue.key, textState.value.text, internal) { res ->
+                    if (res is Result.Success) {
+                        update(null)
+                    }
+                }
+            }
+        },
+        close = close
+    )
 }
 
 @ExperimentalComposeUiApi
@@ -61,93 +74,56 @@ private fun shortcuts(event: KeyEvent, textState: MutableState<TextFieldValue>):
 }
 
 @Composable
-private fun CommentEditorFunctionRow(textState: MutableState<TextFieldValue>) {
-    Row(Modifier.fillMaxWidth()) {
-        IconButton(onClick = { textState.updateText("*") }, modifier = Modifier.size(22.dp)) {
-            Icon(Icons.Filled.FormatBold, "Bold")
-        }
-        Spacer(Modifier.width(2.dp))
-        IconButton(onClick = { textState.updateText("_") }, modifier = Modifier.size(22.dp)) {
-            Icon(Icons.Filled.FormatItalic, "Italic")
-        }
-        Spacer(Modifier.width(2.dp))
-        IconButton(onClick = { textState.updateText("+") }, modifier = Modifier.size(22.dp)) {
-            Icon(Icons.Filled.FormatUnderlined, "Underline")
-        }
-        Spacer(Modifier.width(2.dp))
-        IconButton(onClick = { textState.updateText("-") }, modifier = Modifier.size(22.dp)) {
-            Icon(Icons.Filled.FormatStrikethrough, "Strikethrough")
-        }
-        Spacer(Modifier.width(2.dp))
-        IconButton(onClick = { textState.updateText("??") }, modifier = Modifier.size(22.dp)) {
-            Icon(Icons.Filled.FormatQuote, "Citation")
-        }
-        Spacer(Modifier.width(2.dp))
-        IconButton(onClick = { textState.addLine("*") }, modifier = Modifier.size(22.dp)) {
-            Icon(Icons.Filled.FormatListBulleted, "Bulletlist")
-        }
-        Spacer(Modifier.width(2.dp))
-        IconButton(onClick = { textState.addLine("#") }, modifier = Modifier.size(22.dp)) {
-            Icon(Icons.Filled.FormatListNumbered, "Numberedlist")
-        }
-        Spacer(Modifier.width(2.dp))
-        IconButton(onClick = { textState.addLine("||Head 1||Head 2||\n|Col 1|Col 2|") }, modifier = Modifier.size(22.dp)) {
-            Icon(Icons.Filled.TableRows, "Table")
-        }
-        Spacer(Modifier.width(2.dp))
-        IconButton(onClick = { textState.addLine("{code:java}\nString potato;\n{code}") }, modifier = Modifier.size(22.dp)) {
-            Icon(Icons.Filled.Code, "Code")
-        }
+private fun CommentEditorFunctionRow(textState: MutableState<TextFieldValue>) = Row(Modifier.fillMaxWidth()) {
+    IconButton(onClick = { textState.updateText("*") }, modifier = Modifier.size(22.dp)) {
+        Icon(Icons.Filled.FormatBold, "Bold")
+    }
+    Spacer(Modifier.width(2.dp))
+    IconButton(onClick = { textState.updateText("_") }, modifier = Modifier.size(22.dp)) {
+        Icon(Icons.Filled.FormatItalic, "Italic")
+    }
+    Spacer(Modifier.width(2.dp))
+    IconButton(onClick = { textState.updateText("+") }, modifier = Modifier.size(22.dp)) {
+        Icon(Icons.Filled.FormatUnderlined, "Underline")
+    }
+    Spacer(Modifier.width(2.dp))
+    IconButton(onClick = { textState.updateText("-") }, modifier = Modifier.size(22.dp)) {
+        Icon(Icons.Filled.FormatStrikethrough, "Strikethrough")
+    }
+    Spacer(Modifier.width(2.dp))
+    IconButton(onClick = { textState.updateText("??") }, modifier = Modifier.size(22.dp)) {
+        Icon(Icons.Filled.FormatQuote, "Citation")
+    }
+    Spacer(Modifier.width(2.dp))
+    IconButton(onClick = { textState.addLine("*") }, modifier = Modifier.size(22.dp)) {
+        Icon(Icons.Filled.FormatListBulleted, "Bulletlist")
+    }
+    Spacer(Modifier.width(2.dp))
+    IconButton(onClick = { textState.addLine("#") }, modifier = Modifier.size(22.dp)) {
+        Icon(Icons.Filled.FormatListNumbered, "Numberedlist")
+    }
+    Spacer(Modifier.width(2.dp))
+    IconButton(onClick = { textState.addLine("||Head 1||Head 2||\n|Col 1|Col 2|") }, modifier = Modifier.size(22.dp)) {
+        Icon(Icons.Filled.TableRows, "Table")
+    }
+    Spacer(Modifier.width(2.dp))
+    IconButton(onClick = { textState.addLine("{code:java}\nString potato;\n{code}") }, modifier = Modifier.size(22.dp)) {
+        Icon(Icons.Filled.Code, "Code")
     }
 }
 
 @Composable
-fun CommentEditorSubmitRow(issue: MutableState<Issue>, textState: MutableState<TextFieldValue>, open: MutableState<Boolean>) {
-    Row(Modifier.fillMaxWidth()) {
-        val repo = Repository.current
-        Button(
-            onClick = {
-                if (textState.value.text.isNotBlank()) {
-                    repo.addComment(issue.value.key, textState.value.text, false) { res ->
-                        if (res is Result.Success) {
-                            repo.getIssue(issue.value.key) {
-                                if (it is Result.Success) {
-                                    issue.value = it.data
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            modifier = Modifier.height(24.dp),
-            contentPadding = PaddingValues(2.dp)
-        ) {
-            Text("Kommentieren", fontSize = 13.sp)
-        }
-        Spacer(Modifier.width(10.dp))
-        Button(
-            onClick = {
-                if (textState.value.text.isNotBlank()) {
-                    repo.addComment(issue.value.key, textState.value.text, true) { res ->
-                        if (res is Result.Success) {
-                            repo.getIssue(issue.value.key) {
-                                if (it is Result.Success) {
-                                    issue.value = it.data
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            modifier = Modifier.height(24.dp),
-            contentPadding = PaddingValues(2.dp)
-        ) {
-            Text("intern Kommentieren", fontSize = 13.sp)
-        }
-        Spacer(Modifier.width(10.dp))
-        Button(onClick = { open.value = false }, modifier = Modifier.height(24.dp), contentPadding = PaddingValues(2.dp)) {
-            Text("Abbrechen", fontSize = 13.sp)
-        }
+fun CommentEditorSubmitRow(submit: (Boolean) -> Unit, close: () -> Unit) = Row(Modifier.fillMaxWidth()) {
+    Button(onClick = { submit(false) }, modifier = Modifier.height(24.dp), contentPadding = PaddingValues(2.dp)) {
+        Text("Kommentieren", fontSize = 13.sp)
+    }
+    Spacer(Modifier.width(10.dp))
+    Button(onClick = { submit(true) }, modifier = Modifier.height(24.dp), contentPadding = PaddingValues(2.dp)) {
+        Text("intern Kommentieren", fontSize = 13.sp)
+    }
+    Spacer(Modifier.width(10.dp))
+    Button(onClick = close, modifier = Modifier.height(24.dp), contentPadding = PaddingValues(2.dp)) {
+        Text("Abbrechen", fontSize = 13.sp)
     }
 }
 

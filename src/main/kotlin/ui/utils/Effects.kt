@@ -1,4 +1,4 @@
-package ui
+package ui.utils
 
 import androidx.compose.runtime.*
 import data.api.Result
