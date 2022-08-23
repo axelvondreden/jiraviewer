@@ -1,60 +1,47 @@
 package data.local
 
 
+import androidx.compose.runtime.mutableStateListOf
 import data.api.IssueHead
 import data.api.JiraRepository
 import data.api.Result
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import java.util.*
 
 class NotificationService(private val repo: JiraRepository) {
 
-    private var _notifications = emptyList<Notification>()
-    private var dismissed = emptyList<Notification>()
+    val notifications = mutableStateListOf<Notification>()
+    private var dismissed = mutableSetOf<Notification>()
 
     private val trackedIssues = mutableMapOf<IssueHead, Date>()
-
-    val notifications = flow {
-        while (true) {
-            emit(_notifications)
-            delay(5000)
-        }
-    }
 
     init {
         GlobalScope.launch {
             while (true) {
                 collectNotifications()
-                delay(5000)
+                delay(10000)
             }
         }
     }
 
     private fun collectNotifications() {
-        val list = mutableListOf<Notification>()
-        val tracked = trackedIssues.toMap()
-        val size = tracked.size
-        var count = 0
-        tracked.forEach { (head, time) ->
+        trackedIssues.forEach { (head, time) ->
+            val d = time.toInstant().plusSeconds(-3600 * 24)
             repo.getComments(head.key) { result ->
                 if (result is Result.Success) {
-                    list.addAll(result.data.comments.filter { it.created.after(time) }.map { Notification(head, it) })
+                    notifications.addAll(result.data.comments.filter { it.created.toInstant().isAfter(d) }
+                        .map { Notification(head, it) }.filterNot { it in dismissed || it in notifications })
                 }
                 repo.getIssue(head.key) { result1 ->
                     if (result1 is Result.Success) {
-                        list.addAll(result1.data.changelog?.histories?.filter { it.created.after(time) }?.map { Notification(head, it) } ?: emptyList())
+                        notifications.addAll(result1.data.changelog?.histories?.filter { it.created.toInstant().isAfter(d) }
+                            ?.map { Notification(head, it) }?.filterNot { it in dismissed || it in notifications } ?: emptyList())
                     }
-                    count++
                 }
             }
         }
-        while (count < size) {
-            Thread.sleep(1L)
-        }
-        _notifications = list.filterNot { it in dismissed }.sortedByDescending { it.date }
     }
 
     fun addIssues(vararg issues: IssueHead) {
@@ -75,19 +62,16 @@ class NotificationService(private val repo: JiraRepository) {
         synchronized(trackedIssues) {
             issues.forEach { head ->
                 trackedIssues.remove(head)
-                dismissed = dismissed.filterNot { it.head == head }
             }
         }
     }
 
     fun dismiss(notification: Notification) {
-        dismissed = dismissed.plus(notification)
-        collectNotifications()
+        dismissed += notification
+        notifications.remove(notification)
     }
 
     fun clear() {
         trackedIssues.clear()
-        dismissed = emptyList()
-        collectNotifications()
     }
 }

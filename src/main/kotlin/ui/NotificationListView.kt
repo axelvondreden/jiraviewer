@@ -1,9 +1,7 @@
 package ui
 
-import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
@@ -37,9 +35,8 @@ fun NotificationList(
             Box(Modifier.fillMaxSize().verticalScroll(scroll)) {
                 Column {
                     notifications.forEach {
-                        ListItem(it)
+                        ListItem(it, onClick, onDismiss)
                     }
-                    VerticalScrollbar(rememberScrollbarAdapter(scroll), Modifier.align(Alignment.CenterEnd).fillMaxHeight())
                 }
             }
         }
@@ -64,10 +61,12 @@ private fun ListItem(
                 }
             }
         }
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(4.dp))
         Text(text = timePrinter.format(notification.date), style = dateStyle)
-        Spacer(Modifier.height(6.dp))
-        Text(text = notification.title, fontSize = 16.sp)
+        Spacer(Modifier.height(4.dp))
+        Text(text = notification.title + " by " + notification.user, fontSize = 16.sp)
+        Spacer(Modifier.height(4.dp))
+        Text(text = notification.info, fontSize = 14.sp)
         /*Text(issueHead.fields.summary ?: "")
         Row {
             issueHead.fields.status?.name?.let {

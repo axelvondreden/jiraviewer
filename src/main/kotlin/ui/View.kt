@@ -79,8 +79,7 @@ fun IssuesView(onSettings: () -> Unit) {
 @ExperimentalComposeUiApi
 @Composable
 private fun OpenedIssues(openedIssues: SnapshotStateList<IssueHead>, issueState: MutableState<IssueHead?>, onSettings: () -> Unit) = Column {
-    val notifyService = NotificationService.current
-    val notifications = notifyService.notifications.collectAsState(emptyList()).value
+    val notify = NotificationService.current
     val notifyOpen = remember { mutableStateOf(false) }
     OpenedIssuesNavigationBar(openedIssues, issueState, notifyOpen, onSettings)
     BoxWithConstraints {
@@ -89,7 +88,7 @@ private fun OpenedIssues(openedIssues: SnapshotStateList<IssueHead>, issueState:
             if (notifyOpen.value) {
                 NotificationList(
                     modifier = Modifier.width(340.dp).border(2.dp, Color.DarkGray),
-                    notifications = notifications,
+                    notifications = notify.notifications.sortedByDescending { it.date },
                     onClick = {
                         if (it.head !in openedIssues) {
                             openedIssues += it.head
@@ -122,6 +121,7 @@ private fun OpenedIssuesNavigationBar(
         if (openedIssues.isNotEmpty()) {
             val index = openedIssues.indexOf(issueState.value).coerceIn(openedIssues.indices)
             ScrollableTabRow(selectedTabIndex = index, modifier = Modifier.width(this@BoxWithConstraints.maxWidth - 100.dp), edgePadding = 10.dp) {
+                val notify = NotificationService.current
                 openedIssues.forEachIndexed { i, issueHead ->
                     Tab(selected = i == index, onClick = { issueState.value = issueHead }, modifier = Modifier.height(28.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -130,6 +130,9 @@ private fun OpenedIssuesNavigationBar(
                                 // close the current tab and open the one to the right
                                 val oldIndex = openedIssues.indexOf(issueHead)
                                 openedIssues.remove(issueHead)
+                                if (settings.updates == Settings.UpdateStrategy.TABS) {
+                                    notify.removeIssues(issueHead)
+                                }
                                 issueState.value = if (openedIssues.isEmpty()) null else openedIssues.getOrNull(oldIndex.coerceIn(openedIssues.indices))
                             }) {
                                 Icon(Icons.Default.Close, "close")
