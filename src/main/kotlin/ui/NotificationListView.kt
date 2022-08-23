@@ -2,6 +2,9 @@ package ui
 
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowRight
@@ -13,7 +16,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import data.local.Notification
@@ -28,31 +30,21 @@ fun NotificationList(
     onDismiss: (Notification) -> Unit
 ) = Scaffold(
     modifier = modifier,
-    topBar = {
-        TopAppBar(
-            title = { Text(text = "Updates", style = MaterialTheme.typography.h5, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            actions = {
-
-            }
-        )
-    },
+    topBar = { },
     content = {
-        ListBody(notifications, onClick, onDismiss)
-    }
-)
-
-@Composable
-private fun ListBody(notifications: List<Notification>, onClick: (Notification) -> Unit, onDismiss: (Notification) -> Unit) = Box(Modifier.fillMaxSize()) {
-    val scroll = rememberScrollState()
-    Box(Modifier.fillMaxSize().verticalScroll(scroll)) {
-        Column {
-            notifications.forEach {
-                ListItem(it, onClick, onDismiss)
+        Box(Modifier.fillMaxSize()) {
+            val scroll = rememberScrollState()
+            Box(Modifier.fillMaxSize().verticalScroll(scroll)) {
+                Column {
+                    notifications.forEach {
+                        ListItem(it)
+                    }
+                    VerticalScrollbar(rememberScrollbarAdapter(scroll), Modifier.align(Alignment.CenterEnd).fillMaxHeight())
+                }
             }
         }
     }
-    VerticalScrollbar(rememberScrollbarAdapter(scroll), Modifier.align(Alignment.CenterEnd).fillMaxHeight())
-}
+)
 
 @Composable
 private fun ListItem(
