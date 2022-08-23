@@ -17,7 +17,7 @@ import java.awt.Desktop
 import java.net.URI
 
 @Composable
-fun ParsedText(text: String, modifier: Modifier = Modifier, fontSize: TextUnit = 14.sp) {
+fun JiraText(text: String, modifier: Modifier = Modifier, fontSize: TextUnit = 14.sp) {
     val repo = Repository.current
     val aText = text.parseJiraText(fontSize, repo)
     SelectionContainer {
