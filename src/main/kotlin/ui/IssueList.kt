@@ -185,7 +185,7 @@ private fun ListBody(currentFilter: MutableState<Filter?>, onOpenIssue: (IssueHe
 @Composable
 private fun ListItem(issueHead: IssueHead) {
     Card(modifier = Modifier.padding(4.dp).fillMaxWidth(), backgroundColor = Color(54, 54, 54)) {
-        Column(Modifier.fillMaxSize().padding(4.dp)) {
+        Column(Modifier.padding(2.dp).fillMaxSize().padding(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                 Text(text = issueHead.key, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 Spacer(Modifier.width(10.dp))

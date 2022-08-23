@@ -17,52 +17,52 @@ class NotificationService(private val repo: JiraRepository) {
 
     private val trackedIssues = mutableMapOf<IssueHead, Date>()
 
+    private val timeOffset = -3600 * 24L
+
     init {
         GlobalScope.launch {
             while (true) {
-                collectNotifications()
+                collectForAll()
                 delay(10000)
             }
         }
     }
 
-    private fun collectNotifications() {
-        trackedIssues.forEach { (head, time) ->
-            val d = time.toInstant().plusSeconds(-3600 * 24)
-            repo.getComments(head.key) { result ->
-                if (result is Result.Success) {
-                    notifications.addAll(result.data.comments.filter { it.created.toInstant().isAfter(d) }
-                        .map { Notification(head, it) }.filterNot { it in dismissed || it in notifications })
-                }
-                repo.getIssue(head.key) { result1 ->
-                    if (result1 is Result.Success) {
-                        notifications.addAll(result1.data.changelog?.histories?.filter { it.created.toInstant().isAfter(d) }
-                            ?.map { Notification(head, it) }?.filterNot { it in dismissed || it in notifications } ?: emptyList())
-                    }
+    private fun collectForAll() {
+        trackedIssues.keys.forEach(::collectNotifications)
+    }
+
+    private fun collectNotifications(head: IssueHead) {
+        val d = trackedIssues[head]?.toInstant()?.plusSeconds(timeOffset) ?: return
+        repo.getComments(head.key) { result ->
+            if (result is Result.Success) {
+                notifications.addAll(result.data.comments.filter { it.created.toInstant().isAfter(d) }
+                    .map { Notification(head, it) }.filterNot { it in dismissed || it in notifications })
+            }
+            repo.getIssue(head.key) { result1 ->
+                if (result1 is Result.Success) {
+                    notifications.addAll(result1.data.changelog?.histories?.filter { it.created.toInstant().isAfter(d) }
+                        ?.map { Notification(head, it) }?.filterNot { it in dismissed || it in notifications } ?: emptyList())
                 }
             }
         }
     }
 
     fun addIssues(vararg issues: IssueHead) {
-        synchronized(trackedIssues) {
-            issues.forEach {
-                trackedIssues.putIfAbsent(it, Date())
+        issues.forEach {
+            if (trackedIssues.putIfAbsent(it, Date()) == null) {
+                collectNotifications(it)
             }
         }
     }
 
     fun updateIssue(issue: IssueHead) {
-        synchronized(trackedIssues) {
-            trackedIssues[issue] = Date()
-        }
+        trackedIssues[issue] = Date()
     }
 
     fun removeIssues(vararg issues: IssueHead) {
-        synchronized(trackedIssues) {
-            issues.forEach { head ->
-                trackedIssues.remove(head)
-            }
+        issues.forEach { head ->
+            trackedIssues.remove(head)
         }
     }
 
