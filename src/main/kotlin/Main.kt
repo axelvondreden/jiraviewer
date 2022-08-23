@@ -50,7 +50,7 @@ fun main() = application {
                     is UiState.Error -> errorText.value = result.exception
                     is UiState.Loading -> Scaffold { FullsizeInfo { Loader() } }
                     is UiState.Success -> {
-                        val notificationService = NotificationService()
+                        val notificationService = NotificationService(repo)
                         CompositionLocalProvider(Repository provides repo, NotificationService provides notificationService) {
                             IssuesView(onSettings = { settingsOpened.value = true })
                         }

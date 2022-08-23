@@ -46,7 +46,7 @@ fun SettingsView() {
                             OutlinedTextField(
                                 value = text,
                                 onValueChange = { text = it },
-                                modifier = Modifier.fillMaxWidth().onKeyEvent { if (it.key == Key.Enter) settings.projects += text; text = ""; false },
+                                modifier = Modifier.fillMaxWidth().onKeyEvent { if (it.key == Key.Enter && text.isNotBlank()) { settings.projects += text; text = "" }; false },
                                 label = { Text("Project") },
                                 trailingIcon = {
                                     IconButton(onClick = { settings.projects += text; text = "" }, enabled = text.isNotBlank()) {

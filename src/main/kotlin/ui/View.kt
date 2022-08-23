@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import data.api.*
 import data.local.NotificationService
+import data.local.Settings
 import data.local.Settings.Companion.settings
 import org.ocpsoft.prettytime.PrettyTime
 import ui.splitter.SplitterState
@@ -85,7 +86,22 @@ private fun OpenedIssues(openedIssues: SnapshotStateList<IssueHead>, issueState:
     BoxWithConstraints {
         Row(Modifier.fillMaxSize()) {
             CurrentIssue(modifier = Modifier.width(this@BoxWithConstraints.maxWidth - (if (notifyOpen.value) 340.dp else 0.dp)), issueState)
-            if (notifyOpen.value) NotificationList(modifier = Modifier.width(340.dp).border(2.dp, Color.DarkGray), notifications)
+            if (notifyOpen.value) {
+                NotificationList(
+                    modifier = Modifier.width(340.dp).border(2.dp, Color.DarkGray),
+                    notifications = notifications,
+                    onClick = {
+                        if (it.head !in openedIssues) {
+                            openedIssues += it.head
+                            if (settings.updates == Settings.UpdateStrategy.TABS) {
+                                notify.addIssues(it.head)
+                            }
+                        }
+                        issueState.value = it.head
+                    },
+                    onDismiss = { notify.dismiss(it) }
+                )
+            }
         }
     }
 }
@@ -162,6 +178,7 @@ private fun CurrentIssue(modifier: Modifier, issueState: MutableState<IssueHead?
         if (head == null) FullsizeInfo { Text("Select issue") }
         else {
             val repo = Repository.current
+            val notify = NotificationService.current
             when (val issue = uiStateFrom(head.key) { clb: (Result<Issue>) -> Unit -> repo.getIssue(head.key, clb) }.value) {
                 is UiState.Loading -> FullsizeInfo { Loader() }
                 is UiState.Error -> FullsizeInfo { ErrorText("data.api.Issue loading error") }
@@ -170,7 +187,10 @@ private fun CurrentIssue(modifier: Modifier, issueState: MutableState<IssueHead?
                     when (val editRes = uiStateFrom(issueData.value.key) { clb: (Result<Editmeta>) -> Unit -> repo.getEditmeta(issueData.value.key, clb) }.value) {
                         is UiState.Error -> FullsizeInfo { ErrorText(editRes.exception) }
                         is UiState.Loading -> FullsizeInfo { Loader() }
-                        is UiState.Success -> CurrentIssueActive(issueData, editRes.data.fields)
+                        is UiState.Success -> {
+                            CurrentIssueActive(issueData, editRes.data.fields)
+                            notify.updateIssue(head)
+                        }
                     }
                 }
             }
@@ -738,13 +758,14 @@ private fun IssueField(label: String, content: @Composable () -> Unit) {
 @Composable
 private fun IssuesList(openedIssues: SnapshotStateList<IssueHead>, currentIssue: MutableState<IssueHead?>) {
     val repo = Repository.current
+    val notify = NotificationService.current
     val currentFilter: MutableState<Filter?> = remember { mutableStateOf(null) }
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { },
                 actions = {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
                         FilterDropdown(currentFilter)
                         Row(modifier = Modifier.padding(end = 10.dp), verticalAlignment = Alignment.Bottom) {
                             val project = remember { mutableStateOf(settings.projects[0]) }
@@ -755,7 +776,12 @@ private fun IssuesList(openedIssues: SnapshotStateList<IssueHead>, currentIssue:
                                     if (it is Result.Success) {
                                         val iss = it.data
                                         val head = IssueHead(iss.id, iss.key, iss.fields.toHeadFields())
-                                        if (head !in openedIssues) openedIssues += head
+                                        if (head !in openedIssues) {
+                                            openedIssues += head
+                                            if (settings.updates == Settings.UpdateStrategy.TABS) {
+                                                notify.addIssues(head)
+                                            }
+                                        }
                                         currentIssue.value = head
                                     }
                                 }
@@ -778,6 +804,7 @@ private fun FilterDropdown(currentFilter: MutableState<Filter?>) {
 
         var expanded by remember { mutableStateOf(false) }
         val repo = Repository.current
+        val notify = NotificationService.current
         val filters = uiStateFrom(currentFilter) { clb: (Result<List<Filter>>) -> Unit -> repo.getFilters(clb) }
         Box(Modifier.wrapContentSize(Alignment.CenterStart).border(2.dp, Color.Gray)) {
             Text(currentFilter.value?.name ?: "Filter", modifier = Modifier.clickable(onClick = { expanded = true }).padding(6.dp))
@@ -788,6 +815,9 @@ private fun FilterDropdown(currentFilter: MutableState<Filter?>) {
                             state.data.sortedBy { it.id.toInt() }.forEach { filter ->
                                 Text(text = filter.name, modifier = Modifier.fillMaxWidth().padding(2.dp).clickable {
                                     currentFilter.value = filter
+                                    if (settings.updates == Settings.UpdateStrategy.FILTER) {
+                                        notify.clear()
+                                    }
                                     expanded = false
                                 })
                                 if (filter.id == "-1") {
@@ -838,7 +868,7 @@ private fun IssueTextField(onSubmit: (String) -> Unit) {
         BasicTextField(
             value = issueNumber,
             onValueChange = { issueNumber = it },
-            modifier = Modifier.height(34.dp).border(2.dp, Color.Gray).width(80.dp).onKeyEvent { event ->
+            modifier = Modifier.height(30.dp).border(2.dp, Color.Gray).width(80.dp).onKeyEvent { event ->
                 if (event.key == Key.Enter) onSubmit(issueNumber)
                 false
             },
@@ -855,6 +885,11 @@ private fun ListBody(openedIssues: SnapshotStateList<IssueHead>, currentIssue: M
     val repo = Repository.current
     val issues = uiStateFrom(currentFilter.value?.jql) { clb: (Result<SearchResult>) -> Unit ->
         repo.getIssues(currentFilter.value?.jql, clb)
+    }
+
+    if (issues.value is UiState.Success && settings.updates == Settings.UpdateStrategy.FILTER) {
+        val notify = NotificationService.current
+        notify.addIssues(*(issues.value as UiState.Success<SearchResult>).data.issues.toTypedArray())
     }
 
     Box(Modifier.fillMaxSize()) {
