@@ -29,7 +29,7 @@ fun JiraText(text: String, modifier: Modifier = Modifier, fontSize: TextUnit = 1
     }
 }
 
-private fun String.parseJiraText(fontSize: TextUnit = 14.sp, repo: JiraRepository): AnnotatedString {
+fun String.parseJiraText(fontSize: TextUnit = 14.sp, repo: JiraRepository): AnnotatedString {
     val lines = split("\n").map { it.split(Regex("(\\s+| )")) }
     return AnnotatedString.Builder().apply {
         pushStyle(SpanStyle(color = Color(219, 219, 219), fontSize = fontSize))

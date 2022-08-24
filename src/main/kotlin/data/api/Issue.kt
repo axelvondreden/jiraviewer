@@ -68,7 +68,7 @@ data class History(
 
 data class HistoryItem(val field: String, val fromString: String?, val toString: String?)
 
-fun List<HistoryItem>.asChangelogString() = joinToString("/n") {
+fun List<HistoryItem>.asFormattedStrings() = map {
     it.field + ": [" + it.fromString + "] -> [" + it.toString + "]"
 }
 
