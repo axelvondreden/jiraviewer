@@ -85,7 +85,7 @@ private fun FilterDropdown(currentFilter: MutableState<Filter?>) = Column {
                         state.data.sortedBy { it.id.toInt() }.forEach { filter ->
                             Text(text = filter.name, modifier = Modifier.fillMaxWidth().padding(2.dp).clickable {
                                 currentFilter.value = filter
-                                if (Settings.settings.updates == Settings.UpdateStrategy.FILTER) {
+                                if (Settings.settings.updateStrategy == Settings.UpdateStrategy.FILTER) {
                                     notify.clear()
                                 }
                                 expanded = false
@@ -153,7 +153,7 @@ private fun ListBody(currentFilter: MutableState<Filter?>, onOpenIssue: (IssueHe
         repo.getIssues(currentFilter.value?.jql, clb)
     }
 
-    if (issues.value is UiState.Success && Settings.settings.updates == Settings.UpdateStrategy.FILTER) {
+    if (issues.value is UiState.Success && Settings.settings.updateStrategy == Settings.UpdateStrategy.FILTER) {
         val notify = NotificationService.current
         notify.addIssues(*(issues.value as UiState.Success<SearchResult>).data.issues.toTypedArray())
     }
@@ -185,7 +185,7 @@ private fun ListBody(currentFilter: MutableState<Filter?>, onOpenIssue: (IssueHe
 @Composable
 private fun ListItem(issueHead: IssueHead) {
     Card(modifier = Modifier.padding(4.dp).fillMaxWidth(), backgroundColor = Color(54, 54, 54)) {
-        Column(Modifier.fillMaxSize().padding(4.dp)) {
+        Column(Modifier.padding(2.dp).fillMaxSize().padding(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                 Text(text = issueHead.key, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 Spacer(Modifier.width(10.dp))

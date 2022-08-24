@@ -45,8 +45,8 @@ data class Watchers(val watchCount: Int, val watchers: List<DisplayName>)
 data class Comments(val total: Int, val comments: List<Comment>)
 
 data class Comment(
-    val author: DisplayName,
-    val updateAuthor: DisplayName?,
+    val author: Author,
+    val updateAuthor: Author?,
     val body: String,
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'+0000'", timezone = "GMT")
     val created: Date,
@@ -60,7 +60,7 @@ data class CommentProperty(val key: String, @JsonAnySetter val value: Map<String
 data class Changelog(val total: Int, val histories: List<History>)
 
 data class History(
-    val author: DisplayName,
+    val author: Author,
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'+0000'", timezone = "GMT")
     val created: Date,
     val items: List<HistoryItem>

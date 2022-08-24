@@ -70,7 +70,7 @@ fun MainView(onSettings: () -> Unit) {
 private fun openIssue(openedIssue: MutableState<IssueHead?>, openedIssues: SnapshotStateList<IssueHead>, head: IssueHead, onNotifyAdd: (IssueHead) -> Unit) {
     if (head !in openedIssues) {
         openedIssues += head
-        if (settings.updates == Settings.UpdateStrategy.TABS) {
+        if (settings.updateStrategy == Settings.UpdateStrategy.TABS) {
             onNotifyAdd(head)
         }
     }
