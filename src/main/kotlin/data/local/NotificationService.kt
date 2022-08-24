@@ -5,9 +5,11 @@ import androidx.compose.runtime.mutableStateListOf
 import data.api.IssueHead
 import data.api.JiraRepository
 import data.api.Result
+import data.local.Settings.Companion.settings
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.time.Duration
 import java.util.*
 
 class NotificationService(private val repo: JiraRepository) {
@@ -17,13 +19,11 @@ class NotificationService(private val repo: JiraRepository) {
 
     private val trackedIssues = mutableMapOf<IssueHead, Date>()
 
-    private val timeOffset = -3600 * 24L
-
     init {
         GlobalScope.launch {
             while (true) {
                 collectForAll()
-                delay(10000)
+                delay(settings.updateInterval * 1000L)
             }
         }
     }
@@ -33,16 +33,24 @@ class NotificationService(private val repo: JiraRepository) {
     }
 
     private fun collectNotifications(head: IssueHead) {
-        val d = trackedIssues[head]?.toInstant()?.plusSeconds(timeOffset) ?: return
+        val d = trackedIssues[head]?.toInstant()?.minus(Duration.ofHours(settings.updateOffset.toLong())) ?: return
         repo.getComments(head.key) { result ->
             if (result is Result.Success) {
+                val includeOwn = settings.updateIncludeOwn
+                val me = settings.username
                 notifications.addAll(result.data.comments.filter { it.created.toInstant().isAfter(d) }
-                    .map { Notification(head, it) }.filterNot { it in dismissed || it in notifications })
+                    .filterNot { !includeOwn && it.author.name == me }
+                    .map { Notification(head, it) }
+                    .filterNot { it in dismissed || it in notifications })
             }
             repo.getIssue(head.key) { result1 ->
                 if (result1 is Result.Success) {
+                    val includeOwn = settings.updateIncludeOwn
+                    val me = settings.username
                     notifications.addAll(result1.data.changelog?.histories?.filter { it.created.toInstant().isAfter(d) }
-                        ?.map { Notification(head, it) }?.filterNot { it in dismissed || it in notifications } ?: emptyList())
+                        ?.filterNot { !includeOwn && it.author.name == me }
+                        ?.map { Notification(head, it) }
+                        ?.filterNot { it in dismissed || it in notifications } ?: emptyList())
                 }
             }
         }

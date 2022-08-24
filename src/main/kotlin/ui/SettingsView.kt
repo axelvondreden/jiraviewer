@@ -25,8 +25,10 @@ import androidx.compose.ui.unit.sp
 import data.local.Settings
 import data.local.Settings.Companion.settings
 import ui.utils.FlowRow
+import java.time.Duration
 
-private val settingsLabelStyle = TextStyle(fontWeight = FontWeight.Bold, fontSize = 15.sp)
+private val labelStyle = TextStyle(fontWeight = FontWeight.Bold, fontSize = 15.sp)
+private val subLabelStyle = TextStyle(fontSize = 14.sp)
 
 @ExperimentalComposeUiApi
 @Composable
@@ -75,26 +77,65 @@ fun SettingsView() = Scaffold {
                     }
                 }
                 SettingsRow("Background Updates") {
-                    var expanded by remember { mutableStateOf(false) }
+                    Column {
+                        var expanded by remember { mutableStateOf(false) }
 
-                    BoxWithConstraints(Modifier.fillMaxWidth()) {
-                        Column(Modifier.fillMaxWidth()) {
-                            Button(onClick = { expanded = true }, modifier = Modifier.padding(5.dp).fillMaxWidth()) {
-                                Text(settings.updates.name)
-                                Icon(Icons.Default.ArrowDropDown, "pick update strategy")
-                            }
-                            DropdownMenu(
-                                expanded = expanded,
-                                onDismissRequest = { expanded = false },
-                                modifier = Modifier.width(this@BoxWithConstraints.maxWidth).requiredSizeIn(maxHeight = 600.dp)
-                            ) {
-                                Settings.UpdateStrategy.values().forEach { updateStrategy ->
-                                    Column(Modifier.fillMaxWidth().border(1.dp, Color.Gray).clickable { settings.updates = updateStrategy; expanded = false }) {
-                                        Text(updateStrategy.title, Modifier.fillMaxWidth().padding(2.dp))
-                                        Text(updateStrategy.description, Modifier.fillMaxWidth().padding(2.dp), color = Color.LightGray, fontSize = 14.sp)
+                        BoxWithConstraints(Modifier.fillMaxWidth()) {
+                            Column(Modifier.fillMaxWidth()) {
+                                Text(text = "Strategy", style = subLabelStyle, modifier = Modifier.padding(top = 10.dp, start = 5.dp, bottom = 3.dp))
+                                Button(onClick = { expanded = true }, modifier = Modifier.padding(horizontal = 5.dp).fillMaxWidth()) {
+                                    Text(settings.updateStrategy.name)
+                                    Icon(Icons.Default.ArrowDropDown, "pick update strategy")
+                                }
+                                DropdownMenu(
+                                    expanded = expanded,
+                                    onDismissRequest = { expanded = false },
+                                    modifier = Modifier.width(this@BoxWithConstraints.maxWidth).requiredSizeIn(maxHeight = 600.dp)
+                                ) {
+                                    Settings.UpdateStrategy.values().forEach { updateStrategy ->
+                                        Column(Modifier.fillMaxWidth().border(1.dp, Color.Gray).clickable { settings.updateStrategy = updateStrategy; expanded = false }) {
+                                            Text(updateStrategy.title, Modifier.fillMaxWidth().padding(2.dp))
+                                            Text(updateStrategy.description, Modifier.fillMaxWidth().padding(2.dp), color = Color.LightGray, fontSize = 14.sp)
+                                        }
                                     }
                                 }
                             }
+                        }
+                        Text(text = "Interval", style = subLabelStyle, modifier = Modifier.padding(top = 10.dp, start = 5.dp, bottom = 3.dp))
+                        Row(modifier = Modifier.padding(horizontal = 5.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            var interval by remember { mutableStateOf(settings.updateInterval.toFloat()) }
+                            Slider(
+                                value = interval,
+                                onValueChange = { interval = it },
+                                modifier = Modifier.weight(1F),
+                                enabled = settings.updateStrategy != Settings.UpdateStrategy.NONE,
+                                valueRange = 10F..600F,
+                                steps = 590,
+                                onValueChangeFinished = { settings.updateInterval = interval.toInt() }
+                            )
+                            Text(text = "${interval.toInt()}s", modifier = Modifier.width(40.dp))
+                        }
+                        Text(text = "Offset (How far to check back in time after startup)", style = subLabelStyle, modifier = Modifier.padding(top = 10.dp, start = 5.dp, bottom = 3.dp))
+                        Row(modifier = Modifier.padding(horizontal = 5.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            var offset by remember { mutableStateOf(settings.updateOffset.toFloat()) }
+                            Slider(
+                                value = offset,
+                                onValueChange = { offset = it },
+                                modifier = Modifier.weight(1F),
+                                enabled = settings.updateStrategy != Settings.UpdateStrategy.NONE,
+                                valueRange = 0F..24F,
+                                steps = 24,
+                                onValueChangeFinished = { settings.updateOffset = offset.toInt() }
+                            )
+                            Text(text = "${offset.toInt()}h", modifier = Modifier.width(40.dp))
+                        }
+                        Row(modifier = Modifier.fillMaxWidth().padding(5.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(text = "Show notifications for my own actions", style = subLabelStyle, modifier = Modifier.padding(end = 5.dp))
+                            Checkbox(
+                                checked = settings.updateIncludeOwn,
+                                onCheckedChange = { settings.updateIncludeOwn = it },
+                                enabled = settings.updateStrategy != Settings.UpdateStrategy.NONE
+                            )
                         }
                     }
                 }
@@ -106,7 +147,7 @@ fun SettingsView() = Scaffold {
 @Composable
 private fun SettingsRow(label: String, content: @Composable RowScope.() -> Unit) =
     Row(modifier = Modifier.padding(10.dp).fillMaxWidth().border(width = 1.dp, color = MaterialTheme.colors.onPrimary)) {
-        Text(text = label, style = settingsLabelStyle, modifier = Modifier.padding(10.dp).width(200.dp))
+        Text(text = label, style = labelStyle, modifier = Modifier.padding(10.dp).width(200.dp))
         content()
     }
 

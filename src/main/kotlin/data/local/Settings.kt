@@ -66,11 +66,35 @@ class Settings private constructor() {
         save()
     }
 
-    var updates: UpdateStrategy
-        get() = UpdateStrategy.valueOf(_updates.value)
+    var updateStrategy: UpdateStrategy
+        get() = UpdateStrategy.valueOf(_updateStrategy.value)
         set(value) {
-            _updates.value = value.name
-            settingsDto.updates = value.name
+            _updateStrategy.value = value.name
+            settingsDto.updateStrategy = value.name
+            save()
+        }
+
+    var updateInterval: Int
+        get() = _updateInterval.value
+        set(value) {
+            _updateInterval.value = value
+            settingsDto.updateInterval = value
+            save()
+        }
+
+    var updateOffset: Int
+        get() = _updateOffset.value
+        set(value) {
+            _updateOffset.value = value
+            settingsDto.updateOffset = value
+            save()
+        }
+
+    var updateIncludeOwn: Boolean
+        get() = _updateIncludeOwn.value
+        set(value) {
+            _updateIncludeOwn.value = value
+            settingsDto.updateIncludeOwn = value
             save()
         }
 
@@ -80,7 +104,10 @@ class Settings private constructor() {
     private val _password = mutableStateOf(settingsDto.password)
     private val _commentView = mutableStateOf(settingsDto.commentView)
     private val _commentAscending = mutableStateOf(settingsDto.commentAscending)
-    private val _updates = mutableStateOf(settingsDto.updates)
+    private val _updateStrategy = mutableStateOf(settingsDto.updateStrategy)
+    private val _updateInterval = mutableStateOf(settingsDto.updateInterval)
+    private val _updateOffset = mutableStateOf(settingsDto.updateOffset)
+    private val _updateIncludeOwn = mutableStateOf(settingsDto.updateIncludeOwn)
 
     private fun save() {
         jacksonObjectMapper().writeValue(FileOutputStream(settingsPath), settingsDto)
@@ -137,7 +164,10 @@ class Settings private constructor() {
         var commentView: String,
         var commentAscending: Boolean,
         var projects: List<String>,
-        var updates: String
+        var updateStrategy: String,
+        var updateInterval: Int,
+        var updateOffset: Int,
+        var updateIncludeOwn: Boolean
     )
 
     enum class CommentViewFilter(val title: String) {

@@ -85,7 +85,7 @@ private fun FilterDropdown(currentFilter: MutableState<Filter?>) = Column {
                         state.data.sortedBy { it.id.toInt() }.forEach { filter ->
                             Text(text = filter.name, modifier = Modifier.fillMaxWidth().padding(2.dp).clickable {
                                 currentFilter.value = filter
-                                if (Settings.settings.updates == Settings.UpdateStrategy.FILTER) {
+                                if (Settings.settings.updateStrategy == Settings.UpdateStrategy.FILTER) {
                                     notify.clear()
                                 }
                                 expanded = false
@@ -153,7 +153,7 @@ private fun ListBody(currentFilter: MutableState<Filter?>, onOpenIssue: (IssueHe
         repo.getIssues(currentFilter.value?.jql, clb)
     }
 
-    if (issues.value is UiState.Success && Settings.settings.updates == Settings.UpdateStrategy.FILTER) {
+    if (issues.value is UiState.Success && Settings.settings.updateStrategy == Settings.UpdateStrategy.FILTER) {
         val notify = NotificationService.current
         notify.addIssues(*(issues.value as UiState.Success<SearchResult>).data.issues.toTypedArray())
     }

@@ -38,7 +38,7 @@ fun IssuesNavigationBar(
                                 // close the current tab and open the one to the right
                                 val oldIndex = openedIssues.indexOf(issueHead)
                                 openedIssues.remove(issueHead)
-                                if (Settings.settings.updates == Settings.UpdateStrategy.TABS) {
+                                if (Settings.settings.updateStrategy == Settings.UpdateStrategy.TABS) {
                                     notify.removeIssues(issueHead)
                                 }
                                 issueState.value = if (openedIssues.isEmpty()) null else openedIssues.getOrNull(oldIndex.coerceIn(openedIssues.indices))
