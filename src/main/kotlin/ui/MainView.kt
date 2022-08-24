@@ -47,7 +47,7 @@ fun MainView(onSettings: () -> Unit) {
                 Column {
                     val notifyOpen = remember { mutableStateOf(false) }
 
-                    IssuesNavigationBar(openedIssues, openedIssue, notifyOpen, onSettings)
+                    IssuesNavigationBar(openedIssues, openedIssue, notifyOpen, notify.notifications.size, onSettings)
                     Row(Modifier.fillMaxWidth()) {
                         IssueView(modifier = Modifier.weight(1F), openedIssue)
 
